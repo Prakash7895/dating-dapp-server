@@ -19,8 +19,8 @@ const setupEventListeners = async (contract: Contract) => {
 
     try {
       await query(
-        'INSERT INTO "Likes" ("likerAddress", "targetAddress") VALUES ($1, $2)',
-        [liker, target]
+        'INSERT INTO "Likes" ("likerAddress", "targetAddress", "status", "updatedAt") VALUES ($1, $2, $3, $4)',
+        [liker, target, true, new Date().toISOString()]
       );
       console.log('✅ Like event stored in database');
     } catch (error) {
@@ -36,8 +36,8 @@ const setupEventListeners = async (contract: Contract) => {
 
     try {
       await query(
-        'INSERT INTO "Matches" ("addressA", "addressB") VALUES ($1, $2)',
-        [userA, userB]
+        'INSERT INTO "Matches" ("addressA", "addressB", "status", "updatedAt") VALUES ($1, $2, $3, $4)',
+        [userA, userB, true, new Date().toISOString()]
       );
       console.log('✅ Match event stored in database');
     } catch (error) {
@@ -56,8 +56,8 @@ const setupEventListeners = async (contract: Contract) => {
 
       try {
         await query(
-          'INSERT INTO "MultiSigWallet" ("addressA", "addressB", "walletAddress") VALUES ($1, $2, $3)',
-          [userA, userB, walletAddress]
+          'INSERT INTO "MultiSigWallet" ("addressA", "addressB", "walletAddress", "updatedAt") VALUES ($1, $2, $3, $4)',
+          [userA, userB, walletAddress, new Date().toISOString()]
         );
         console.log('✅ MultiSig wallet event stored in database');
       } catch (error) {
