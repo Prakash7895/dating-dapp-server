@@ -6,7 +6,7 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthDto } from './dto/auth.dto';
+import { AuthDto, SessionResponse } from './dto/auth.dto';
 import { JwtPayload } from 'src/types';
 
 @Injectable()
@@ -17,7 +17,10 @@ export class AuthService {
   ) {}
 
   async validateUser(email: string, password: string) {
-    const user = await this.prisma.user.findUnique({ where: { email } });
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+      include: { profile: true },
+    });
     if (user && (await bcrypt.compare(password, user.password!))) {
       const { password, ...result } = user;
       return result;
@@ -39,6 +42,8 @@ export class AuthService {
         email: user.email,
         userId: user.id,
         walletAddress: user.walletAddress,
+        firstName: user.profile?.firstName ?? null,
+        lastName: user.profile?.lastName ?? null,
       };
 
       const accessToken = this.jwtService.sign(payload, {
@@ -97,9 +102,13 @@ export class AuthService {
       });
 
       const session = await this.prisma.session.findFirst({
-        where: { userId: payload.sub },
+        where: { userId: payload.userId },
         include: {
-          user: true,
+          user: {
+            include: {
+              profile: true,
+            },
+          },
         },
       });
 
@@ -107,7 +116,13 @@ export class AuthService {
         throw new UnauthorizedException('Invalid refresh token');
       }
 
-      const newPayload = { email: session.user.email, sub: session.user.id };
+      const newPayload: JwtPayload = {
+        email: session.user.email,
+        userId: session.user.id,
+        walletAddress: session.user.walletAddress,
+        firstName: session.user.profile?.firstName ?? null,
+        lastName: session.user.profile?.lastName ?? null,
+      };
 
       const access_token = this.jwtService.sign(newPayload, {
         secret: process.env.JWT_SECRET,
@@ -121,6 +136,81 @@ export class AuthService {
       };
     } catch {
       throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async validateToken(
+    user: JwtPayload,
+  ): Promise<{ status: 'success' | 'error'; data: SessionResponse }> {
+    try {
+      if (!user) {
+        return {
+          status: 'error',
+          data: {
+            user: null,
+            expires: new Date(),
+          },
+        };
+      }
+
+      const savedUser = await this.prisma.user.findFirst({
+        where: { id: user.userId },
+        include: { profile: true },
+      });
+
+      if (!savedUser) {
+        return {
+          status: 'error',
+          data: {
+            user: null,
+            expires: new Date(),
+          },
+        };
+      }
+
+      return {
+        status: 'success',
+        data: {
+          user: {
+            userId: savedUser.id,
+            email: savedUser.email,
+            walletAddress: savedUser.walletAddress,
+            firstName: savedUser.profile?.firstName ?? null,
+            lastName: savedUser.profile?.lastName ?? null,
+          },
+          expires: new Date(),
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        message: 'Failed to get session',
+        error: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async logout(user: JwtPayload) {
+    try {
+      const sessions = await this.prisma.session.findMany({
+        where: { userId: user.userId },
+      });
+      if (sessions.length) {
+        await this.prisma.session.deleteMany({
+          where: { id: { in: sessions.map((el) => el.id) } },
+        });
+      }
+
+      return {
+        status: 'success',
+        message: 'Logged out successfully',
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        message: 'Invalid credentials',
+        error: error.message,
+        status: 'error',
+      });
     }
   }
 }

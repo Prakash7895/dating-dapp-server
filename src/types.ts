@@ -4,6 +4,8 @@ export type JwtPayload = {
   userId: string;
   email: string | null;
   walletAddress: string | null;
+  firstName: string | null;
+  lastName: string | null;
 };
 
 export interface RequestWithUser extends Request {
