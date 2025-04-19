@@ -13,16 +13,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id                Int        @id @default(autoincrement())
+model Profile {
+  id                String   @id @default(uuid())
+  userId            String   @unique
   firstName         String
   lastName          String
   age               Int
   gender            String
   sexualOrientation String
-  selectedAddress   String?    @unique
-  email             String?    @unique
-  password          String?
   city              String?
   country           String?
   bio               String?
@@ -34,89 +32,105 @@ model User {
   maxAge            Int?
   genderPreference  String?
   profilePicture    String?
-  createdAt         DateTime   @default(now())
-  updatedAt         DateTime   @updatedAt
-  lastActiveOn      DateTime?
-  accounts          Account[]
-  sessions          Session[]
-  files             UserFile[]
-
-  UserWalletAddresses UserWalletAddresses[]
-}
-
-model Account {
-  id                String  @id @default(cuid())
-  userId            Int
-  type              String
-  provider          String
-  providerAccountId String
-  refresh_token     String? @db.Text
-  access_token      String? @db.Text
-  expires_at        Int?
-  token_type        String?
-  scope             String?
-  id_token          String? @db.Text
-  session_state     String?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("profiles")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  walletAddress String?   @unique
+  email         String?   @unique
+  password      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastActiveOn  DateTime?
+
+  sessions      Session[]
+  files         UserFile[]
+  profile       Profile?
+  likes         Likes[]          @relation("liker")
+  liked         Likes[]          @relation("target")
+  matchA        Matches[]        @relation("addressA")
+  matchB        Matches[]        @relation("addressB")
+  ownerAddressA MultiSigWallet[] @relation("ownerAddressA")
+  ownerAddressB MultiSigWallet[] @relation("ownerAddressB")
+
+  @@index([email, walletAddress])
+  @@map("users")
 }
 
 model Session {
-  id           String   @id @default(cuid())
-  sessionToken String   @unique
-  userId       Int
-  expires      DateTime
-  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(uuid())
+  refreshToken        String?
+  refreshTokenExpires DateTime?
+  userId              String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("sessions")
 }
 
 model UserFile {
-  id        Int      @id @default(autoincrement())
-  userId    Int
+  id        String   @id @default(uuid())
+  userId    String
   s3Key     String   @unique
   access    String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
-}
-
-model UserWalletAddresses {
-  id        Int      @id @default(autoincrement())
-  userId    Int
-  address   String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
+  @@map("user_files")
 }
 
 model Likes {
-  id            Int      @id @default(autoincrement())
+  id            String   @id @default(uuid())
   likerAddress  String // liker wallet address
   targetAddress String // target wallet address
   status        Boolean
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  user   User @relation("liker", fields: [likerAddress], references: [walletAddress], onDelete: Cascade)
+  target User @relation("target", fields: [targetAddress], references: [walletAddress], onDelete: Cascade)
+
+  @@index([likerAddress, targetAddress])
+  @@map("likes")
 }
 
 model Matches {
-  id        Int      @id @default(autoincrement())
+  id        String   @id @default(uuid())
   addressA  String // userA wallet address
   addressB  String // userB wallet address
   status    Boolean
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  userA User @relation("addressA", fields: [addressA], references: [walletAddress], onDelete: Cascade)
+  userB User @relation("addressB", fields: [addressB], references: [walletAddress], onDelete: Cascade)
+
+  @@index([addressA, addressB])
+  @@map("matches")
 }
 
 model MultiSigWallet {
-  id            Int      @id @default(autoincrement())
+  id            String   @id @default(uuid())
   addressA      String
   addressB      String
   walletAddress String
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  userA User @relation("ownerAddressA", fields: [addressA], references: [walletAddress], onDelete: Cascade)
+  userB User @relation("ownerAddressB", fields: [addressB], references: [walletAddress], onDelete: Cascade)
+
+  @@index([addressA, addressB, walletAddress])
+  @@map("multisig_wallets")
 }

@@ -1,7 +1,20 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Post,
+  Body,
+  Param,
+  Delete,
+  Query,
+  Req,
+  Put,
+  UseGuards,
+} from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
+import { PaginationDto } from 'src/common.dto';
+import { RequestWithUser } from 'src/types';
+import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 
 @Controller('users')
 export class UsersController {
@@ -13,22 +26,20 @@ export class UsersController {
   }
 
   @Get()
-  findAll() {
-    return this.usersService.findAll();
+  @UseGuards(JwtAuthGuard)
+  findAll(@Req() req: RequestWithUser, @Query() query: PaginationDto) {
+    return this.usersService.findAll(req.user, query);
   }
 
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.usersService.findOne(+id);
+  @Get('liked')
+  @UseGuards(JwtAuthGuard)
+  findLikedUsers(@Req() req: RequestWithUser, @Query() query: PaginationDto) {
+    return this.usersService.findLikedUsers(req.user, query);
   }
 
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.usersService.update(+id, updateUserDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.usersService.remove(+id);
+  @Get('matched')
+  @UseGuards(JwtAuthGuard)
+  findMatchedUsers(@Req() req: RequestWithUser, @Query() query: PaginationDto) {
+    return this.usersService.findMatchedUsers(req.user, query);
   }
 }
