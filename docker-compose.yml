@@ -1,15 +1,16 @@
 version: '3.8'
-
 services:
-  app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    ports:
-      - '${PORT}:${PORT}'
+  postgres:
+    image: postgres:latest
+    container_name: dating-dapp-db
     environment:
-      - PORT=${PORT}
-      - MATCH_MAKING_ADDRESS=${MATCH_MAKING_ADDRESS}
-      - ALCHEMY_WEBSOCKET_URL=${ALCHEMY_WEBSOCKET_URL}
-      - DATABASE_URL=${DATABASE_URL}
-    restart: unless-stopped
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: dating_dapp
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_data: 
