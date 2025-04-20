@@ -9,9 +9,17 @@ import { AuthModule } from './auth/auth.module';
 import { HelperService } from './helper/helper.service';
 import { UploadService } from './upload/upload.service';
 import { BlockchainModule } from './blockchain/blockchain.module';
+import { DocsModule } from './docs/docs.module';
 
 @Module({
-  imports: [ConfigModule.forRoot(), UsersModule, ProfileModule, AuthModule, BlockchainModule],
+  imports: [
+    ConfigModule.forRoot(),
+    UsersModule,
+    ProfileModule,
+    AuthModule,
+    BlockchainModule,
+    DocsModule,
+  ],
   controllers: [AppController],
   providers: [AppService, PrismaService, HelperService, UploadService],
 })

@@ -26,6 +26,7 @@ export class ProfileService {
       const savedUser = await this.prisma.user.findUnique({
         where: { id: user.userId },
         select: {
+          id: true,
           email: true,
           profile: true,
           walletAddress: true,
@@ -36,13 +37,13 @@ export class ProfileService {
         throw new BadRequestException('User not found');
       }
 
-      if (savedUser.profile?.profilePicture) {
-        const profilePicture = await this.uploadService.getSignedUrl(
-          savedUser.profile.profilePicture,
-        );
+      // if (savedUser.profile?.profilePicture) {
+      //   const profilePicture = await this.uploadService.getSignedUrl(
+      //     savedUser.profile.profilePicture,
+      //   );
 
-        savedUser.profile.profilePicture = profilePicture;
-      }
+      //   savedUser.profile.profilePicture = profilePicture;
+      // }
 
       return {
         status: 'success',
@@ -63,6 +64,7 @@ export class ProfileService {
       const savedUser = await this.prisma.user.findUnique({
         where: { id: user.userId },
         select: {
+          id: true,
           email: true,
           walletAddress: true,
           profile: true,
@@ -148,6 +150,7 @@ export class ProfileService {
       const savedUser = await this.prisma.user.findUnique({
         where: { id: user.userId },
         select: {
+          id: true,
           profile: true,
           walletAddress: true,
           email: true,
@@ -194,6 +197,7 @@ export class ProfileService {
       const savedUser = await this.prisma.user.findUnique({
         where: { id: user.userId },
         select: {
+          id: true,
           email: true,
           profile: true,
           walletAddress: true,
@@ -330,17 +334,22 @@ export class ProfileService {
       return {
         status: 'success',
         message: 'Photos found',
-        data: photos.map((photo) => {
-          const signedUrl = signedUrls.find(
-            (url) => url.key === photo.s3Key,
-          )?.signedUrl;
+        data: {
+          data: photos.map((photo) => {
+            const signedUrl = signedUrls.find(
+              (url) => url.key === photo.s3Key,
+            )?.signedUrl;
 
-          return {
-            access: photo.access,
-            url: signedUrl,
-          };
-        }),
-        total: totalPhotos,
+            return {
+              access: photo.access,
+              id: photo.id,
+              updatedAt: photo.updatedAt,
+              key: photo.s3Key,
+              url: signedUrl,
+            };
+          }),
+          total: totalPhotos,
+        },
       };
     } catch (error) {
       throw new BadRequestException({

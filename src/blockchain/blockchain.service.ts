@@ -31,6 +31,22 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
       console.log('target:', target);
 
       try {
+        const existingLikes = await this.prisma.likes.findMany({
+          where: {
+            likerAddress: liker,
+            targetAddress: target,
+            status: true,
+          },
+        });
+        if (existingLikes.length) {
+          await this.prisma.likes.updateMany({
+            where: { id: { in: existingLikes.map((like) => like.id) } },
+            data: {
+              status: false,
+            },
+          });
+        }
+
         await this.prisma.likes.create({
           data: {
             likerAddress: liker,

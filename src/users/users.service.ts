@@ -144,6 +144,7 @@ export class UsersService {
 
       const whereQuery = {
         AND: [
+          { id: { not: user.userId } },
           {
             walletAddress: { not: currUser?.walletAddress || undefined },
           },
@@ -157,7 +158,11 @@ export class UsersService {
         where: whereQuery,
         skip,
         take,
-        include: {
+        select: {
+          id: true,
+          email: true,
+          lastActiveOn: true,
+          walletAddress: true,
           profile: true,
           files: {
             where: {
@@ -195,8 +200,7 @@ export class UsersService {
       return {
         status: 'success',
         message: 'Users retrieved successfully',
-        data: users,
-        total: totalUsers,
+        data: { users, total: totalUsers },
       };
     } catch (error) {
       throw new BadRequestException({
@@ -235,7 +239,11 @@ export class UsersService {
           targetAddress: true,
           createdAt: true,
           target: {
-            include: {
+            select: {
+              id: true,
+              email: true,
+              walletAddress: true,
+              lastActiveOn: true,
               profile: true,
               files: true,
             },
@@ -267,8 +275,10 @@ export class UsersService {
       return {
         status: 'success',
         message: 'Liked users retrieved successfully',
-        data: likedUsers.map((l) => ({ ...l.target, likedAt: l.createdAt })),
-        total: totalLikedUsers,
+        data: {
+          users: likedUsers.map((l) => ({ ...l.target, likedAt: l.createdAt })),
+          total: totalLikedUsers,
+        },
       };
     } catch (error) {
       throw new BadRequestException({
