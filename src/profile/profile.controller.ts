@@ -79,6 +79,15 @@ export class ProfileController {
     return this.profileService.updateCurrUserEmail(body, req.user);
   }
 
+  @Put('/check-wallet-address')
+  @UseGuards(JwtAuthGuard)
+  checkCurrUserAddress(
+    @Req() req: RequestWithUser,
+    @Body() body: UpdateWalletAddressDto,
+  ) {
+    return this.profileService.checkCurrUserAddress(body, req.user);
+  }
+
   @Put('/wallet-address')
   @UseGuards(JwtAuthGuard)
   updateCurrUserAddress(

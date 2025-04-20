@@ -27,10 +27,13 @@ export class UpdatePasswordDto {
   @IsString()
   @IsNotEmpty()
   @MinLength(8)
-  @Matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[a-zA-Z\d@$!%*?&]{8,}$/, {
-    message:
-      'Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character',
-  })
+  @Matches(
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[a-zA-Z\d@$!%*?&]{8,}$/,
+    {
+      message:
+        'Password must contain at least 1 uppercase letter, 1 lowercase letter, 1 number, and 1 special character',
+    },
+  )
   password: string;
 
   @IsString()
@@ -105,7 +108,7 @@ export class UpdateUserDto {
   genderPreference: GENDER_PREFERENCES;
 }
 
-export class UpdateEmailDto {
+export class UpdateEmailDto extends UpdatePasswordDto {
   @IsString()
   @IsNotEmpty({ message: 'Email is required' })
   @IsEmail()

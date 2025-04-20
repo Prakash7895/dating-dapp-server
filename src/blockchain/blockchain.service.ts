@@ -33,8 +33,8 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
       try {
         const existingLikes = await this.prisma.likes.findMany({
           where: {
-            likerAddress: liker,
-            targetAddress: target,
+            likerAddress: liker?.toLowerCase(),
+            targetAddress: target?.toLowerCase(),
             status: true,
           },
         });
@@ -49,8 +49,8 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
 
         await this.prisma.likes.create({
           data: {
-            likerAddress: liker,
-            targetAddress: target,
+            likerAddress: liker?.toLowerCase(),
+            targetAddress: target?.toLowerCase(),
             status: true,
           },
         });
@@ -69,8 +69,8 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
       try {
         await this.prisma.matches.create({
           data: {
-            addressA: userA,
-            addressB: userB,
+            addressA: userA?.toLowerCase(),
+            addressB: userB?.toLowerCase(),
             status: true,
           },
         });
@@ -92,9 +92,9 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
         try {
           await this.prisma.multiSigWallet.create({
             data: {
-              addressA: userA,
-              addressB: userB,
-              walletAddress: walletAddress,
+              addressA: userA?.toLowerCase(),
+              addressB: userB?.toLowerCase(),
+              walletAddress: walletAddress?.toLowerCase(),
             },
           });
           console.log('✅ MultiSig wallet event stored in database');

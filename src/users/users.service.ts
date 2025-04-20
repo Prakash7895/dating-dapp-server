@@ -35,7 +35,7 @@ export class UsersService {
 
       if (walletAddress) {
         const existingUserByAddress = await this.prisma.user.findUnique({
-          where: { walletAddress: walletAddress },
+          where: { walletAddress: walletAddress.toLowerCase() },
         });
 
         if (existingUserByAddress) {
@@ -86,9 +86,9 @@ export class UsersService {
       // Create user in database
       const user = await this.prisma.user.create({
         data: {
-          email: userData.email,
+          email: userData.email?.toLowerCase(),
           password: userData.password,
-          walletAddress: userData.walletAddress,
+          walletAddress: userData.walletAddress?.toLowerCase(),
           profile: {
             create: {
               firstName: userData.firstName,
@@ -110,8 +110,8 @@ export class UsersService {
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'User creation failed',
-        error: error.message,
+        error: 'User creation failed',
+        message: error.message,
         status: 'error',
       });
     }
@@ -132,7 +132,7 @@ export class UsersService {
 
       const likedUsers = await this.prisma.likes.findMany({
         where: {
-          likerAddress: currUser?.walletAddress || undefined,
+          likerAddress: currUser?.walletAddress?.toLowerCase() || undefined,
         },
         select: {
           targetAddress: true,
@@ -140,22 +140,32 @@ export class UsersService {
       });
 
       const likedAddresses =
-        likedUsers?.map((user) => user.targetAddress) ?? [];
+        likedUsers?.map((user) => user.targetAddress?.toLowerCase()) ?? [];
 
-      const whereQuery = {
-        AND: [
-          { id: { not: user.userId } },
-          {
-            walletAddress: { not: currUser?.walletAddress || undefined },
-          },
-          {
-            walletAddress: { notIn: likedAddresses },
-          },
-        ],
-      };
+      const whereQueryAnd: any[] = [{ id: { not: { equals: user.userId } } }];
+
+      if (currUser?.walletAddress) {
+        whereQueryAnd.push({
+          OR: [
+            {
+              walletAddress: {
+                not: { equals: currUser.walletAddress?.toLowerCase() },
+              },
+            },
+            { walletAddress: null },
+          ],
+        });
+      }
+      if (likedAddresses.length) {
+        whereQueryAnd.push({
+          walletAddress: { notIn: likedAddresses },
+        });
+      }
 
       const users = await this.prisma.user.findMany({
-        where: whereQuery,
+        where: {
+          AND: whereQueryAnd,
+        },
         skip,
         take,
         select: {
@@ -194,7 +204,7 @@ export class UsersService {
       }
 
       const totalUsers = await this.prisma.user.count({
-        where: whereQuery,
+        where: { AND: whereQueryAnd },
       });
 
       return {
@@ -229,7 +239,7 @@ export class UsersService {
       }
 
       const whereQuery = {
-        likerAddress: currUser.walletAddress,
+        likerAddress: currUser.walletAddress?.toLowerCase(),
         status: true,
       };
 
@@ -282,8 +292,8 @@ export class UsersService {
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'User retrieval failed',
-        error: error.message,
+        error: 'User retrieval failed',
+        message: error.message,
         status: 'error',
       });
     }
@@ -309,10 +319,10 @@ export class UsersService {
       const whereQuery = {
         OR: [
           {
-            addressA: currUser.walletAddress,
+            addressA: currUser.walletAddress?.toLowerCase(),
           },
           {
-            addressB: currUser.walletAddress,
+            addressB: currUser.walletAddress?.toLowerCase(),
           },
         ],
       };
@@ -345,7 +355,10 @@ export class UsersService {
       });
 
       for (const l of matchedUsers) {
-        const user = l.addressA === currUser.walletAddress ? l.userB : l.userA;
+        const user =
+          l.addressA?.toLowerCase() === currUser.walletAddress?.toLowerCase()
+            ? l.userB
+            : l.userA;
 
         const files = user.files.map((file) => file.s3Key);
 
@@ -364,15 +377,18 @@ export class UsersService {
         status: 'success',
         message: 'Matched users retrieved successfully',
         data: matchedUsers.map((l) => ({
-          ...(l.addressA === currUser.walletAddress ? l.userB : l.userA),
+          ...(l.addressA?.toLowerCase() ===
+          currUser.walletAddress?.toLowerCase()
+            ? l.userB
+            : l.userA),
           matchedAt: l.createdAt,
         })),
         total: totalMatchedUsers,
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'User retrieval failed',
-        error: error.message,
+        error: 'User retrieval failed',
+        message: error.message,
         status: 'error',
       });
     }

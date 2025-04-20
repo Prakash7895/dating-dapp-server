@@ -10,6 +10,7 @@ import { HelperService } from './helper/helper.service';
 import { UploadService } from './upload/upload.service';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { DocsModule } from './docs/docs.module';
+import { NftModule } from './nft/nft.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { DocsModule } from './docs/docs.module';
     AuthModule,
     BlockchainModule,
     DocsModule,
+    NftModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, HelperService, UploadService],

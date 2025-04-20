@@ -213,16 +213,21 @@ export class ProfileService {
       }
 
       const emailExists = await this.prisma.user.findUnique({
-        where: { email: data.email },
+        where: { email: data.email?.toLowerCase() },
       });
       if (emailExists) {
         throw new BadRequestException('Email already exists');
       }
 
+      const hashedPassword = await this.helperService.hashPassword(
+        data.password,
+      );
+
       const updatedUser = await this.prisma.user.update({
         where: { id: user.userId },
         data: {
-          email: data.email,
+          email: data.email?.toLowerCase(),
+          password: hashedPassword,
         },
       });
 
@@ -233,8 +238,8 @@ export class ProfileService {
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'Failed to get current user',
-        error: error.message,
+        error: 'Failed to add email',
+        message: error.message,
         status: 'error',
       });
     }
@@ -267,7 +272,7 @@ export class ProfileService {
       }
 
       const walletAddressExists = await this.prisma.user.findUnique({
-        where: { walletAddress: data.walletAddress },
+        where: { walletAddress: data.walletAddress?.toLowerCase() },
       });
       if (walletAddressExists) {
         throw new BadRequestException('Wallet address already exists');
@@ -276,7 +281,7 @@ export class ProfileService {
       await this.prisma.user.update({
         where: { id: user.userId },
         data: {
-          walletAddress: data.walletAddress,
+          walletAddress: data.walletAddress.toLowerCase(),
         },
       });
 
@@ -471,6 +476,35 @@ export class ProfileService {
       throw new BadRequestException({
         message: 'Failed to update photo access',
         error: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async checkCurrUserAddress(data: UpdateWalletAddressDto, user: JwtPayload) {
+    try {
+      if (isAddress(data.walletAddress) === false) {
+        throw new BadRequestException('Invalid wallet address');
+      }
+
+      const existingUser = await this.prisma.user.findFirst({
+        where: {
+          walletAddress: data.walletAddress.toLowerCase(),
+        },
+      });
+
+      if (existingUser) {
+        throw new BadRequestException('Cannot add this wallet address');
+      }
+
+      return {
+        status: 'success',
+        message: 'Wallet address can be added',
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'Failed to get current user',
+        message: error.message,
         status: 'error',
       });
     }

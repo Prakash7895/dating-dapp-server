@@ -6,14 +6,17 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthDto, SessionResponse } from './dto/auth.dto';
+import { AuthDto, SessionResponse, WalletAuthDto } from './dto/auth.dto';
 import { JwtPayload } from 'src/types';
+import { ethers } from 'ethers';
+import { HelperService } from 'src/helper/helper.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private helperService: HelperService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -28,7 +31,116 @@ export class AuthService {
     return null;
   }
 
-  async login(authDto: AuthDto) {
+  async login(dto: AuthDto | WalletAuthDto) {
+    const authDto = dto as AuthDto;
+    const walletDto = dto as WalletAuthDto;
+
+    if (authDto.email && authDto.password) {
+      return this.loginWithEmail(authDto);
+    }
+    if (walletDto.signedMessage && walletDto.walletAddress) {
+      return this.loginWithWallet(walletDto);
+    }
+
+    throw new BadRequestException('Invalid Data');
+  }
+
+  async loginWithWallet(walletAuthDto: WalletAuthDto) {
+    try {
+      const { walletAddress, signedMessage } = walletAuthDto;
+
+      // Verify wallet address format
+      if (!ethers.isAddress(walletAddress)) {
+        throw new BadRequestException('Invalid wallet address');
+      }
+
+      const user = await this.prisma.user.findFirst({
+        where: { walletAddress: walletAddress.toLowerCase() },
+        include: { profile: true },
+      });
+
+      if (!user) {
+        throw new BadRequestException('No user found, want to sign up?');
+      }
+
+      // Verify signature
+      const message = `${process.env.WALLET_MESSAGE_TO_VERIFY}${walletAddress}`;
+      const isValid = await this.helperService.verifyWalletSignature(
+        walletAddress,
+        signedMessage,
+        message,
+      );
+
+      if (!isValid) {
+        throw new UnauthorizedException('Invalid signature');
+      }
+
+      const payload: JwtPayload = {
+        userId: user.id,
+        email: user.email,
+        walletAddress: user.walletAddress,
+        firstName: user.profile?.firstName ?? null,
+        lastName: user.profile?.lastName ?? null,
+      };
+
+      const accessToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_SECRET,
+        expiresIn: '15m',
+      });
+
+      const accessTokenExpireTime = new Date(Date.now() + 15 * 60 * 1000);
+
+      const refreshToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: '7d',
+      });
+
+      const refreshTokenExpireTime = new Date(
+        Date.now() + 7 * 24 * 60 * 60 * 1000,
+      );
+
+      // Update or create session
+      const session = await this.prisma.session.findFirst({
+        where: { userId: user.id },
+        select: { id: true },
+      });
+
+      if (session) {
+        await this.prisma.session.update({
+          where: { id: session.id },
+          data: {
+            refreshToken,
+            refreshTokenExpires: refreshTokenExpireTime,
+          },
+        });
+      } else {
+        await this.prisma.session.create({
+          data: {
+            refreshToken,
+            refreshTokenExpires: refreshTokenExpireTime,
+            userId: user.id,
+          },
+        });
+      }
+
+      return {
+        status: 'success',
+        message: 'Wallet login successful',
+        data: {
+          access_token: accessToken,
+          refresh_token: refreshToken,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'Wallet authentication failed',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async loginWithEmail(authDto: AuthDto) {
     try {
       const { email, password } = authDto;
 
