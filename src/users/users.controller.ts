@@ -6,9 +6,14 @@ import {
   Query,
   Req,
   UseGuards,
+  Param,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
-import { CreateUserDto } from './dto/create-user.dto';
+import {
+  AddressDto,
+  CreateUserDto,
+  GetMultiSigWalletDto,
+} from './dto/create-user.dto';
 import { PaginationDto } from 'src/common.dto';
 import { RequestWithUser } from 'src/types';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
@@ -38,5 +43,17 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   findMatchedUsers(@Req() req: RequestWithUser, @Query() query: PaginationDto) {
     return this.usersService.findMatchedUsers(req.user, query);
+  }
+
+  @Get('multi-sig-wallet/:addressA/:addressB')
+  @UseGuards(JwtAuthGuard)
+  getMultiSigWallet(@Param() param: GetMultiSigWalletDto) {
+    return this.usersService.getMultiSigWallet(param);
+  }
+
+  @Get('by-address/:address')
+  @UseGuards(JwtAuthGuard)
+  getUser(@Param() param: AddressDto) {
+    return this.usersService.getUserByAddress(param);
   }
 }

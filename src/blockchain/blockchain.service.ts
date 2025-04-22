@@ -123,7 +123,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
       this.wsProvider = new WebSocketProvider(url);
 
       const contractAddress = process.env.MATCH_MAKING_ADDRESS!;
-      console.log('contractAddress', contractAddress);
+      console.log('🔗 Connecting to contract at:', contractAddress);
 
       console.log('🔄 Initializing WebSocket connection...');
 

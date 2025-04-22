@@ -21,7 +21,6 @@ import {
   GENDER_PREFERENCES,
   SEXUAL_ORIENTATION,
 } from 'src/types';
-import { isAddress } from 'ethers';
 
 export class UpdatePasswordDto {
   @IsString()

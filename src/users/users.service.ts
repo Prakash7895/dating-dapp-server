@@ -1,10 +1,15 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+import {
+  AddressDto,
+  CreateUserDto,
+  GetMultiSigWalletDto,
+} from './dto/create-user.dto';
 import { PrismaService } from 'src/prisma.service';
 import { HelperService } from 'src/helper/helper.service';
 import { PaginationDto } from 'src/common.dto';
 import { FILE_ACCESS, JwtPayload } from 'src/types';
 import { UploadService } from 'src/upload/upload.service';
+import { isAddress } from 'ethers';
 
 @Injectable()
 export class UsersService {
@@ -334,13 +339,21 @@ export class UsersService {
           addressA: true,
           addressB: true,
           userA: {
-            include: {
+            select: {
+              email: true,
+              lastActiveOn: true,
+              id: true,
+              walletAddress: true,
               profile: true,
               files: true,
             },
           },
           userB: {
-            include: {
+            select: {
+              email: true,
+              lastActiveOn: true,
+              id: true,
+              walletAddress: true,
               profile: true,
               files: true,
             },
@@ -376,18 +389,128 @@ export class UsersService {
       return {
         status: 'success',
         message: 'Matched users retrieved successfully',
-        data: matchedUsers.map((l) => ({
-          ...(l.addressA?.toLowerCase() ===
-          currUser.walletAddress?.toLowerCase()
-            ? l.userB
-            : l.userA),
-          matchedAt: l.createdAt,
-        })),
-        total: totalMatchedUsers,
+        data: {
+          users: matchedUsers.map((l) => ({
+            ...(l.addressA?.toLowerCase() ===
+            currUser.walletAddress?.toLowerCase()
+              ? l.userB
+              : l.userA),
+            matchedAt: l.createdAt,
+            addressA: l.addressA,
+            addressB: l.addressB,
+          })),
+          total: totalMatchedUsers,
+        },
       };
     } catch (error) {
       throw new BadRequestException({
         error: 'User retrieval failed',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getMultiSigWallet(query: GetMultiSigWalletDto) {
+    try {
+      const { addressA, addressB } = query;
+
+      if (!addressA || !addressB) {
+        throw new Error('Addresses are required');
+      }
+
+      if (!isAddress(addressA)) {
+        throw new Error('Address A is not valid wallet address');
+      }
+
+      if (!isAddress(addressB)) {
+        throw new Error('Address B is not valid wallet address');
+      }
+
+      const address = await this.prisma.multiSigWallet.findFirst({
+        where: {
+          OR: [
+            { addressA: { in: [addressA, addressB] } },
+            { addressB: { in: [addressA, addressB] } },
+          ],
+        },
+        include: {
+          userA: {
+            select: {
+              walletAddress: true,
+              email: true,
+              id: true,
+              profile: true,
+            },
+          },
+          userB: {
+            select: {
+              walletAddress: true,
+              email: true,
+              id: true,
+              profile: true,
+            },
+          },
+        },
+      });
+
+      if (!address) {
+        throw new Error('Wallet not found');
+      }
+
+      return {
+        status: 'success',
+        data: {
+          ...address,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting multisig wallet',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getUserByAddress(query: AddressDto) {
+    try {
+      const { address } = query;
+
+      if (!address) {
+        throw new Error('Addresses are required');
+      }
+
+      if (!isAddress(address)) {
+        throw new Error('Address A is not valid wallet address');
+      }
+
+      const user = await this.prisma.user.findFirst({
+        where: {
+          walletAddress: address,
+        },
+        select: {
+          id: true,
+          email: true,
+          lastActiveOn: true,
+          profile: true,
+          walletAddress: true,
+        },
+      });
+
+      if (!address) {
+        throw new Error('Wallet not found');
+      }
+
+      return {
+        status: 'success',
+        data: {
+          ...user,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting multisig wallet',
         message: error.message,
         status: 'error',
       });

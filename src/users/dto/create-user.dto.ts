@@ -51,3 +51,16 @@ export class CreateUserDto {
   @Type(() => Number)
   longitude?: number;
 }
+
+export class GetMultiSigWalletDto {
+  @IsString()
+  addressA?: string;
+
+  @IsString()
+  addressB?: string;
+}
+
+export class AddressDto {
+  @IsString()
+  address?: string;
+}
