@@ -430,8 +430,12 @@ export class UsersService {
       const address = await this.prisma.multiSigWallet.findFirst({
         where: {
           OR: [
-            { addressA: { in: [addressA, addressB] } },
-            { addressB: { in: [addressA, addressB] } },
+            {
+              AND: [{ addressA: addressA }, { addressB: addressB }],
+            },
+            {
+              AND: [{ addressA: addressB }, { addressB: addressA }],
+            },
           ],
         },
         include: {
@@ -473,7 +477,7 @@ export class UsersService {
     }
   }
 
-  async getUserByAddress(query: AddressDto) {
+  async getUserByAddress(query: AddressDto, user: JwtPayload) {
     try {
       const { address } = query;
 
@@ -495,17 +499,69 @@ export class UsersService {
           lastActiveOn: true,
           profile: true,
           walletAddress: true,
+          ownerAddressA: true,
+          ownerAddressB: true,
         },
       });
 
-      if (!address) {
+      if (!user) {
         throw new Error('Wallet not found');
+      }
+      const { ownerAddressA, ownerAddressB, ...u } = user;
+      const multiSigWallet = (ownerAddressA || ownerAddressB)?.[0];
+
+      return {
+        status: 'success',
+        data: {
+          ...u,
+          multiSigWallet,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting multisig wallet',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getMyMultiSigWallets(query: AddressDto) {
+    try {
+      const { address } = query;
+
+      if (!address) {
+        throw new Error('Address are required');
+      }
+
+      if (!isAddress(address)) {
+        throw new Error('Address is not valid wallet address');
+      }
+
+      const addresses = await this.prisma.multiSigWallet.findMany({
+        where: {
+          OR: [
+            {
+              addressA: address,
+            },
+            {
+              addressB: address,
+            },
+          ],
+        },
+        select: {
+          walletAddress: true,
+        },
+      });
+
+      if (!addresses.length) {
+        throw new Error('No Multisig wallet found');
       }
 
       return {
         status: 'success',
         data: {
-          ...user,
+          multiSigWallets: addresses.map((el) => el.walletAddress),
         },
       };
     } catch (error) {
