@@ -11,6 +11,8 @@ import { UploadService } from './upload/upload.service';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { DocsModule } from './docs/docs.module';
 import { NftModule } from './nft/nft.module';
+import { WebSocketModule } from './web-socket/web-socket.module';
+import { ChatModule } from './chat/chat.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { NftModule } from './nft/nft.module';
     BlockchainModule,
     DocsModule,
     NftModule,
+    WebSocketModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, HelperService, UploadService],

@@ -2,6 +2,7 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Contract, ethers, Interface, WebSocketProvider } from 'ethers';
 import { PrismaService } from 'src/prisma.service';
 import * as matchMakingAbi from 'src/abis/MatchMaking.json';
+import { WebSocketGateway } from 'src/web-socket/web-socket.gateway';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit, OnModuleDestroy {
@@ -9,7 +10,10 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
   private contract: Contract | null = null;
   private isInitialized = false;
 
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private wsGateway: WebSocketGateway,
+  ) {}
 
   async onModuleInit() {
     console.log('Initializing BlockchainService...');
@@ -54,6 +58,20 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
             status: true,
           },
         });
+
+        const [likerUser, targetUser] = await Promise.all([
+          this.prisma.user.findUnique({
+            where: { walletAddress: liker.toLowerCase() },
+          }),
+          this.prisma.user.findUnique({
+            where: { walletAddress: target.toLowerCase() },
+          }),
+        ]);
+
+        if (likerUser && targetUser) {
+          this.wsGateway.emitLikeEvent(likerUser.id, targetUser.id);
+        }
+
         console.log('✅ Like event stored in database');
       } catch (error) {
         console.error('❌ Error storing like event:', error);
@@ -74,6 +92,20 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
             status: true,
           },
         });
+
+        const [userAData, userBData] = await Promise.all([
+          this.prisma.user.findUnique({
+            where: { walletAddress: userA.toLowerCase() },
+          }),
+          this.prisma.user.findUnique({
+            where: { walletAddress: userB.toLowerCase() },
+          }),
+        ]);
+
+        if (userAData && userBData) {
+          this.wsGateway.emitMatchEvent(userAData.id, userBData.id);
+        }
+
         console.log('✅ Match event stored in database');
       } catch (error) {
         console.error('❌ Error storing match event:', error);

@@ -59,6 +59,9 @@ model User {
   matchB        Matches[]        @relation("addressB")
   ownerAddressA MultiSigWallet[] @relation("ownerAddressA")
   ownerAddressB MultiSigWallet[] @relation("ownerAddressB")
+  ChatRoomA     ChatRoom[]       @relation("roomUserA")
+  ChatRoomB     ChatRoom[]       @relation("roomUserB")
+  ChatMessage   ChatMessage[]
 
   @@index([email, walletAddress])
   @@map("users")
@@ -133,4 +136,36 @@ model MultiSigWallet {
 
   @@index([addressA, addressB, walletAddress])
   @@map("multisig_wallets")
+}
+
+model ChatRoom {
+  id        String        @id @default(uuid())
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+  userAId   String
+  userBId   String
+  messages  ChatMessage[]
+
+  userA User @relation("roomUserA", fields: [userAId], references: [id])
+  userB User @relation("roomUserB", fields: [userBId], references: [id])
+
+  @@unique([userAId, userBId])
+  @@map("chat_rooms")
+}
+
+model ChatMessage {
+  id        String   @id @default(uuid())
+  content   String
+  roomId    String
+  senderId  String
+  received  Boolean  @default(false)
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User     @relation(fields: [senderId], references: [id])
+
+  @@index([roomId, senderId])
+  @@map("chat_messages")
 }

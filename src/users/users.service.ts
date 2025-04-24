@@ -519,7 +519,7 @@ export class UsersService {
       };
     } catch (error) {
       throw new BadRequestException({
-        error: 'failed getting multisig wallet',
+        error: 'failed getting user by address',
         message: error.message,
         status: 'error',
       });
@@ -554,19 +554,15 @@ export class UsersService {
         },
       });
 
-      if (!addresses.length) {
-        throw new Error('No Multisig wallet found');
-      }
-
       return {
         status: 'success',
         data: {
-          multiSigWallets: addresses.map((el) => el.walletAddress),
+          multiSigWallets: addresses?.map((el) => el.walletAddress) ?? [],
         },
       };
     } catch (error) {
       throw new BadRequestException({
-        error: 'failed getting multisig wallet',
+        error: "failed getting user's multisig wallets",
         message: error.message,
         status: 'error',
       });
