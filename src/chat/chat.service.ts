@@ -11,9 +11,16 @@ export class ChatService {
     private readonly uploadService: UploadService,
   ) {}
 
-  async getChats(user: JwtPayload) {
+  async getChats(user: JwtPayload, pagination: PaginationDto) {
     try {
+      const { pageNo, pageSize } = pagination;
+
+      const take = pageSize;
+      const skip = (pageNo - 1) * pageSize;
+
       const chats = await this.prismaService.chatRoom.findMany({
+        take,
+        skip,
         where: {
           OR: [{ userAId: user.userId }, { userBId: user.userId }],
         },
@@ -38,6 +45,19 @@ export class ChatService {
               createdAt: 'desc',
             },
           },
+          _count: {
+            select: {
+              messages: {
+                where: {
+                  senderId: { not: user.userId },
+                  read: false,
+                },
+              },
+            },
+          },
+        },
+        orderBy: {
+          updatedAt: 'desc',
         },
       });
 
@@ -45,6 +65,7 @@ export class ChatService {
         ...(el.userA.id === user.userId ? el.userB.profile : el.userA.profile),
         roomId: el.id,
         lastMessage: el.messages?.[0] ?? null,
+        unreadCount: el._count?.messages || 0,
       }));
 
       for (const c of ch) {

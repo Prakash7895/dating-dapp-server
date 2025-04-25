@@ -37,6 +37,9 @@ enum EMIT_EVENTS {
   USER_TYPING = 'userTyping',
   NEW_MESSAGE = 'newMessage',
   MESSAGE_STATUS = 'messageStatus',
+  USER_STATUS = 'userStatus',
+  TOKEN_MISSING = 'tokenMissing',
+  INVALID_TOKEN = 'invalidToken',
 }
 
 @WebSocketGatewayDecorator({
@@ -50,7 +53,6 @@ export class WebSocketGateway
 {
   @WebSocketServer() server: Server;
   private userSockets: Map<string, Set<string>> = new Map();
-  private typingUsers: Map<string, Set<string>> = new Map();
 
   constructor(
     private prisma: PrismaService,
@@ -63,6 +65,7 @@ export class WebSocketGateway
     try {
       const token = client.handshake.auth.token;
       if (!token) {
+        client.emit(EMIT_EVENTS.TOKEN_MISSING, 'Token is missing');
         client.disconnect();
         return;
       }
@@ -76,6 +79,7 @@ export class WebSocketGateway
       const user = await this.jwtStrategy.validate(payload);
 
       if (!user) {
+        client.emit(EMIT_EVENTS.INVALID_TOKEN, 'Invalid or expired token');
         client.disconnect();
         return;
       }
@@ -98,7 +102,8 @@ export class WebSocketGateway
       // Broadcast this user's online status to others
       this.broadcastUserStatus(user.userId, true);
     } catch (error) {
-      console.error('Connection error:', error);
+      console.log('Connection error:', error.message);
+      client.emit(EMIT_EVENTS.INVALID_TOKEN, 'Invalid or expired token');
       client.disconnect();
     }
   }
@@ -126,7 +131,7 @@ export class WebSocketGateway
       });
     });
 
-    return onlineStatuses;
+    return onlineStatuses.filter((el) => el.online);
   }
 
   async handleDisconnect(@ConnectedSocket() client: UserSocket) {
@@ -223,6 +228,13 @@ export class WebSocketGateway
       },
     });
 
+    await this.prisma.chatRoom.update({
+      where: { id: payload.roomId },
+      data: {
+        updatedAt: new Date(),
+      },
+    });
+
     const recipientId =
       message.room.userAId === user.userId
         ? message.room.userBId
@@ -235,11 +247,20 @@ export class WebSocketGateway
         );
     }
 
+    const unreadCount = await this.prisma.chatMessage.count({
+      where: {
+        roomId: payload.roomId,
+        senderId: user.userId,
+        read: false,
+      },
+    });
+
     // Emit to recipient
     this.emitToUser(recipientId, EMIT_EVENTS.NEW_MESSAGE, {
       ...message,
       received: false,
       read: false,
+      unreadCount,
     });
 
     return message;
@@ -489,7 +510,7 @@ export class WebSocketGateway
   private broadcastUserStatus(userId: string, online: boolean) {
     this.getOnlineStatusesForChats(userId).then((users) => {
       users.forEach((user) => {
-        this.emitToUser(user.userId, 'userStatus', {
+        this.emitToUser(user.userId, EMIT_EVENTS.USER_STATUS, {
           userId,
           online,
         });

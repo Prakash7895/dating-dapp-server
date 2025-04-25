@@ -10,8 +10,8 @@ export class ChatController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  getChats(@Req() req: RequestWithUser) {
-    return this.chatService.getChats(req.user);
+  getChats(@Req() req: RequestWithUser, @Query() pagination: PaginationDto) {
+    return this.chatService.getChats(req.user, pagination);
   }
 
   @Get('/:roomId')
