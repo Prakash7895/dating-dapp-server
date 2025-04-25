@@ -59,7 +59,9 @@ export class WebSocketGateway
     private jwtService: JwtService,
     private jwtStrategy: JwtStrategy,
     private uploadService: UploadService,
-  ) {}
+  ) {
+    console.log('WebSocketGateway instantiated');
+  }
 
   async handleConnection(@ConnectedSocket() client: UserSocket) {
     try {

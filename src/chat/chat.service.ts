@@ -125,7 +125,7 @@ export class ChatService {
 
       return {
         status: 'success',
-        data: messages.reverse(),
+        data: messages,
       };
     } catch (err) {
       throw new BadRequestException({
