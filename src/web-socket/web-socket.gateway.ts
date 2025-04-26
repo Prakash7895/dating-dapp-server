@@ -40,6 +40,7 @@ enum EMIT_EVENTS {
   USER_STATUS = 'userStatus',
   TOKEN_MISSING = 'tokenMissing',
   INVALID_TOKEN = 'invalidToken',
+  MARK_ALL_RECEIVED = 'markAllReceived',
 }
 
 @WebSocketGatewayDecorator({
@@ -338,16 +339,29 @@ export class WebSocketGateway
     @MessageBody() payload: { messageId: string },
     @WsUser() user: JwtPayload,
   ) {
-    const message = await this.prisma.chatMessage.update({
-      where: { id: payload.messageId },
-      data: { read: true },
-      include: { room: true },
-    });
+    try {
+      const message = await this.prisma.chatMessage.findUnique({
+        where: { id: payload.messageId },
+      });
+      if (message && !message.read) {
+        await this.prisma.chatMessage.update({
+          where: { id: payload.messageId },
+          data: { read: true },
+        });
 
-    this.emitToUser(message.senderId, EMIT_EVENTS.MESSAGE_STATUS, {
-      messageId: message.id,
-      status: 'read',
-    });
+        this.emitToUser(message.senderId, EMIT_EVENTS.MESSAGE_STATUS, {
+          messageId: message.id,
+          status: 'read',
+        });
+        return { status: 'success', message: 'Message marked as read' };
+      }
+
+      // Send acknowledgment back to the client
+      return { status: 'error', message: 'Message already marked as read' };
+    } catch (error) {
+      console.error('Error marking message as read:', error);
+      throw new WsException('Failed to mark message as read');
+    }
   }
 
   // Add method to get online users in a chat room
@@ -492,6 +506,33 @@ export class WebSocketGateway
       ...walletInfo,
       matchedWith: userAId,
     });
+  }
+
+  async emitMessageReceivedEvent(forUserId: string) {
+    try {
+      const chats = await this.prisma.chatRoom.findMany({
+        where: {
+          OR: [{ userAId: forUserId }, { userBId: forUserId }],
+        },
+      });
+
+      if (chats.length) {
+        for (const chat of chats) {
+          const userId =
+            chat.userAId === forUserId ? chat.userBId : chat.userAId;
+
+          this.emitToUser(userId, EMIT_EVENTS.MARK_ALL_RECEIVED, {
+            roomId: chat.id,
+          });
+        }
+      }
+
+      // Send acknowledgment back to the client
+      return { status: 'success', message: 'Message marked as read' };
+    } catch (error) {
+      console.error('Error emitting message recived event:', error);
+      throw new WsException('Failed to emit message received event');
+    }
   }
 
   // Helper methods

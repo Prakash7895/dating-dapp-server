@@ -1,4 +1,12 @@
-import { Controller, Get, Param, Query, Req, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  Put,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 import { RequestWithUser } from 'src/types';
@@ -22,5 +30,11 @@ export class ChatController {
     @Query() pagination: PaginationDto,
   ) {
     return this.chatService.getChatMessages(roomId, req.user, pagination);
+  }
+
+  @Put('/mark-received')
+  @UseGuards(JwtAuthGuard)
+  markReceived(@Req() req: RequestWithUser) {
+    return this.chatService.markReceived(req.user);
   }
 }
