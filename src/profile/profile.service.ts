@@ -30,6 +30,16 @@ export class ProfileService {
           email: true,
           profile: true,
           walletAddress: true,
+          _count: {
+            select: {
+              Notification: {
+                where: {
+                  status: true,
+                  read: false,
+                },
+              },
+            },
+          },
         },
       });
 
@@ -45,10 +55,13 @@ export class ProfileService {
       //   savedUser.profile.profilePicture = profilePicture;
       // }
 
+      const unreadNotifications = savedUser._count.Notification;
+      const { _count, ...userData } = savedUser;
+
       return {
         status: 'success',
         message: 'User found',
-        data: savedUser,
+        data: { ...userData, unreadNotifications },
       };
     } catch (error) {
       throw new BadRequestException({

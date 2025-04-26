@@ -62,6 +62,8 @@ model User {
   ChatRoomA     ChatRoom[]       @relation("roomUserA")
   ChatRoomB     ChatRoom[]       @relation("roomUserB")
   ChatMessage   ChatMessage[]
+  nudger        Notification[]   @relation("nudger")
+  Notification  Notification[]
 
   @@index([email, walletAddress])
   @@map("users")
@@ -168,4 +170,23 @@ model ChatMessage {
 
   @@index([roomId, senderId])
   @@map("chat_messages")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  content   String
+  read      Boolean  @default(false)
+  nudgerId  String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  status    Boolean  @default(true) // true = active, false = deleted
+
+  user   User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  nudger User? @relation("nudger", fields: [nudgerId], references: [id])
+
+  @@index([userId])
+  @@map("notifications")
 }

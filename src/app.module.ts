@@ -13,6 +13,7 @@ import { DocsModule } from './docs/docs.module';
 import { NftModule } from './nft/nft.module';
 import { WebSocketModule } from './web-socket/web-socket.module';
 import { ChatModule } from './chat/chat.module';
+import { NotificationModule } from './notification/notification.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { ChatModule } from './chat/chat.module';
     NftModule,
     WebSocketModule,
     ChatModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [AppService, PrismaService, HelperService, UploadService],
