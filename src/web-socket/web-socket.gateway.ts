@@ -30,6 +30,7 @@ enum CHAT_EVENTS {
   STOP_TYPING = 'stopTyping',
   MESSAGE_RECEIVED = 'messageReceived',
   MESSAGE_READ = 'messageRead',
+  LOG_OUT = 'logOut',
 }
 
 enum EMIT_EVENTS {
@@ -165,6 +166,15 @@ export class WebSocketGateway
     return (
       this.userSockets.has(userId) && this.userSockets.get(userId)!.size > 0
     );
+  }
+
+  @SubscribeMessage(CHAT_EVENTS.LOG_OUT)
+  async handleLogout(@ConnectedSocket() client: UserSocket) {
+    if (client.user) {
+      this.removeUserSocket(client.user.userId, client.id);
+      console.log(`User ${client.user.userId} logged out, socket removed`);
+      client.disconnect();
+    }
   }
 
   // Add to WebSocketGateway class
