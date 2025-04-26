@@ -41,6 +41,7 @@ enum EMIT_EVENTS {
   TOKEN_MISSING = 'tokenMissing',
   INVALID_TOKEN = 'invalidToken',
   MARK_ALL_RECEIVED = 'markAllReceived',
+  NEW_MATCH_EVENT = 'newMatchEvent',
 }
 
 @WebSocketGatewayDecorator({
@@ -496,16 +497,45 @@ export class WebSocketGateway
       },
     });
 
-    // Emit to both users
-    this.emitToUser(userAId, 'newMatch', {
-      ...walletInfo,
-      matchedWith: userBId,
-    });
+    const multiSigWallet = {
+      addressA: walletInfo?.addressA,
+      addressB: walletInfo?.addressB,
+      id: walletInfo?.id,
+      createdAt: walletInfo?.createdAt,
+      updatedAt: walletInfo?.updatedAt,
+    };
 
-    this.emitToUser(userBId, 'newMatch', {
-      ...walletInfo,
-      matchedWith: userAId,
-    });
+    const userAData = { ...walletInfo?.userA, multiSigWallet };
+    const userBData = { ...walletInfo?.userB, multiSigWallet };
+
+    if (userAData.profile?.profilePicture) {
+      userAData.profile.profilePicture = await this.uploadService.getSignedUrl(
+        userAData.profile.profilePicture,
+      );
+    }
+
+    if (userBData.profile?.profilePicture) {
+      userBData.profile.profilePicture = await this.uploadService.getSignedUrl(
+        userBData.profile.profilePicture,
+      );
+    }
+
+    // Emit to both users
+    if (userAData.id && this.isUserOnline(userAData.id)) {
+      this.emitToUser(userAData.id, EMIT_EVENTS.NEW_MATCH_EVENT, {
+        matchedWith: userBData,
+        userAId: userAData.id,
+        userBId: userBData.id,
+      });
+    }
+
+    if (userBData.id && this.isUserOnline(userBData.id)) {
+      this.emitToUser(userBData.id, EMIT_EVENTS.NEW_MATCH_EVENT, {
+        matchedWith: userAData,
+        userAId: userAData.id,
+        userBId: userBData.id,
+      });
+    }
   }
 
   async emitMessageReceivedEvent(forUserId: string) {
