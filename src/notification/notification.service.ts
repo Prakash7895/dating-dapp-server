@@ -29,15 +29,10 @@ export class NotificationService {
         where: whereQuery,
       });
 
-      const total = await this.prisma.notification.count({ where: whereQuery });
-
       return {
         status: 'success',
         message: 'Notifications fetched successfully',
-        data: {
-          notifications,
-          total,
-        },
+        data: notifications,
       };
     } catch (error) {
       throw new BadRequestException({

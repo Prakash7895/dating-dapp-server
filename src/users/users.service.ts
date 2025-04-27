@@ -10,6 +10,7 @@ import { PaginationDto } from 'src/common.dto';
 import { FILE_ACCESS, JwtPayload } from 'src/types';
 import { UploadService } from 'src/upload/upload.service';
 import { isAddress } from 'ethers';
+import { NotificationType } from 'src/notification/dto/nudge.dto';
 
 @Injectable()
 export class UsersService {
@@ -179,6 +180,16 @@ export class UsersService {
           lastActiveOn: true,
           walletAddress: true,
           profile: true,
+          Notification: {
+            where: {
+              nudgerId: user.userId,
+              type: NotificationType.NUDGE,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+            take: 1,
+          },
           files: {
             where: {
               access: FILE_ACCESS.PUBLIC,
@@ -215,7 +226,16 @@ export class UsersService {
       return {
         status: 'success',
         message: 'Users retrieved successfully',
-        data: { users, total: totalUsers },
+        data: {
+          users: users.map((el) => {
+            const { Notification, ...rest } = el;
+            return {
+              ...rest,
+              nudgedAt: el.Notification?.[0]?.createdAt ?? null,
+            };
+          }),
+          total: totalUsers,
+        },
       };
     } catch (error) {
       throw new BadRequestException({

@@ -2,6 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { JwtPayload } from 'src/types';
 import { PrismaService } from 'src/prisma.service';
 import {
+  EnableEmailLoginDto,
   UpdateEmailDto,
   UpdatePasswordDto,
   UpdateUserDto,
@@ -513,6 +514,44 @@ export class ProfileService {
       return {
         status: 'success',
         message: 'Wallet address can be added',
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'Failed to get current user',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async enableEmailLogin(data: EnableEmailLoginDto, user: JwtPayload) {
+    try {
+      const savedUser = await this.prisma.user.findUnique({
+        where: { id: user.userId },
+        select: {
+          email: true,
+          walletAddress: true,
+        },
+      });
+
+      if (!savedUser) {
+        throw new BadRequestException('User not found');
+      }
+
+      if (!savedUser.email) {
+        throw new BadRequestException('Email not present');
+      }
+
+      await this.prisma.user.update({
+        where: { id: user.userId },
+        data: {
+          emailOnlyLogin: data.enable,
+        },
+      });
+
+      return {
+        status: 'success',
+        message: `Email only login ${data.enable ? 'activated' : 'de-activated'}.`,
       };
     } catch (error) {
       throw new BadRequestException({

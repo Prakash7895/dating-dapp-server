@@ -16,6 +16,7 @@ import { ProfileService } from './profile.service';
 import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 import { RequestWithUser } from 'src/types';
 import {
+  EnableEmailLoginDto,
   UpdateEmailDto,
   UpdatePasswordDto,
   UpdateUserDto,
@@ -148,5 +149,14 @@ export class ProfileController {
       body,
       req.user,
     );
+  }
+
+  @Put('/enable-email-login')
+  @UseGuards(JwtAuthGuard)
+  enableEmailLogin(
+    @Req() req: RequestWithUser,
+    @Body() body: EnableEmailLoginDto,
+  ) {
+    return this.profileService.enableEmailLogin(body, req.user);
   }
 }

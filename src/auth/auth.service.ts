@@ -55,12 +55,20 @@ export class AuthService {
       }
 
       const user = await this.prisma.user.findFirst({
-        where: { walletAddress: walletAddress.toLowerCase() },
+        where: {
+          walletAddress: { equals: walletAddress, mode: 'insensitive' },
+        },
         include: { profile: true },
       });
 
       if (!user) {
         throw new BadRequestException('No user found, want to sign up?');
+      }
+
+      if (user.emailOnlyLogin) {
+        throw new BadRequestException(
+          'This account is setup with email-only login, please login with email and password',
+        );
       }
 
       // Verify signature

@@ -3,6 +3,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEmail,
   IsEnum,
   IsNotEmpty,
@@ -124,4 +125,10 @@ export class UploadPhotoDto {
   @IsEnum(FILE_ACCESS, { message: 'File access is required' })
   @IsNotEmpty({ message: 'File access is required' })
   access: FILE_ACCESS;
+}
+
+export class EnableEmailLoginDto {
+  @IsBoolean()
+  @IsNotEmpty()
+  enable: boolean;
 }

@@ -42,13 +42,14 @@ model Profile {
 }
 
 model User {
-  id            String    @id @default(uuid())
-  walletAddress String?   @unique
-  email         String?   @unique
-  password      String?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  lastActiveOn  DateTime?
+  id             String    @id @default(uuid())
+  walletAddress  String?   @unique
+  email          String?   @unique
+  password       String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  lastActiveOn   DateTime?
+  emailOnlyLogin Boolean?  @default(false)
 
   sessions      Session[]
   files         UserFile[]
