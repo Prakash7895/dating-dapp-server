@@ -59,20 +59,48 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
           },
         });
 
-        const [likerUser, targetUser] = await Promise.all([
-          this.prisma.user.findUnique({
-            where: { walletAddress: liker.toLowerCase() },
-          }),
-          this.prisma.user.findUnique({
-            where: { walletAddress: target.toLowerCase() },
-          }),
-        ]);
+        // const [likerUser, targetUser] = await Promise.all([
+        //   this.prisma.user.findUnique({
+        //     where: { walletAddress: liker.toLowerCase() },
+        //   }),
+        //   this.prisma.user.findUnique({
+        //     where: { walletAddress: target.toLowerCase() },
+        //   }),
+        // ]);
 
-        if (likerUser && targetUser) {
-          this.wsGateway.emitLikeEvent(likerUser.id, targetUser.id);
-        }
+        // if (likerUser && targetUser) {
+        //   this.wsGateway.emitLikeEvent(likerUser.id, targetUser.id);
+        // }
 
         console.log('✅ Like event stored in database');
+      } catch (error) {
+        console.error('❌ Error storing like event:', error);
+      }
+    });
+
+    await contract.on('UnLike', async (liker: string, target: string) => {
+      console.log('📝 UnLike Event triggered');
+      console.log('liker:', liker);
+      console.log('target:', target);
+
+      try {
+        const existingLikes = await this.prisma.likes.findMany({
+          where: {
+            likerAddress: liker?.toLowerCase(),
+            targetAddress: target?.toLowerCase(),
+            status: true,
+          },
+        });
+        if (existingLikes.length) {
+          await this.prisma.likes.updateMany({
+            where: { id: { in: existingLikes.map((like) => like.id) } },
+            data: {
+              status: false,
+            },
+          });
+        }
+
+        console.log('✅ UnLike event stored in database');
       } catch (error) {
         console.error('❌ Error storing like event:', error);
       }
@@ -93,18 +121,18 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
           },
         });
 
-        const [userAData, userBData] = await Promise.all([
-          this.prisma.user.findUnique({
-            where: { walletAddress: userA.toLowerCase() },
-          }),
-          this.prisma.user.findUnique({
-            where: { walletAddress: userB.toLowerCase() },
-          }),
-        ]);
+        // const [userAData, userBData] = await Promise.all([
+        //   this.prisma.user.findUnique({
+        //     where: { walletAddress: userA.toLowerCase() },
+        //   }),
+        //   this.prisma.user.findUnique({
+        //     where: { walletAddress: userB.toLowerCase() },
+        //   }),
+        // ]);
 
-        if (userAData && userBData) {
-          this.wsGateway.emitMatchEvent(userAData.id, userBData.id);
-        }
+        // if (userAData && userBData) {
+        //   this.wsGateway.emitMatchEvent(userAData.id, userBData.id);
+        // }
 
         console.log('✅ Match event stored in database');
       } catch (error) {
@@ -122,13 +150,55 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
         console.log('userB:', userB);
 
         try {
-          await this.prisma.multiSigWallet.create({
+          const users = await this.prisma.multiSigWallet.create({
             data: {
               addressA: userA?.toLowerCase(),
               addressB: userB?.toLowerCase(),
               walletAddress: walletAddress?.toLowerCase(),
             },
+            select: {
+              userA: {
+                select: {
+                  id: true,
+                },
+              },
+              userB: {
+                select: {
+                  id: true,
+                },
+              },
+            },
           });
+
+          const userAId = users.userA.id;
+          const userBId = users.userB.id;
+
+          const chatRoomExists = await this.prisma.chatRoom.findFirst({
+            where: {
+              OR: [
+                {
+                  AND: [{ userAId: userAId }, { userBId: userBId }],
+                },
+                {
+                  AND: [{ userAId: userBId }, { userBId: userAId }],
+                },
+              ],
+            },
+          });
+
+          if (!chatRoomExists) {
+            await this.prisma.chatRoom.create({
+              data: {
+                userAId: userAId,
+                userBId: userBId,
+              },
+            });
+          }
+
+          this.wsGateway.emitMatchEvent(
+            userA?.toLowerCase(),
+            userB?.toLowerCase(),
+          );
           console.log('✅ MultiSig wallet event stored in database');
         } catch (error) {
           console.error('❌ Error storing multisig wallet event:', error);

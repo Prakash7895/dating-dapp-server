@@ -210,5 +210,24 @@
       }
     ],
     "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "UnLike",
+    "inputs": [
+      {
+        "name": "liker",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "target",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      }
+    ],
+    "anonymous": false
   }
 ]

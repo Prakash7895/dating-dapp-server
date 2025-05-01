@@ -11,6 +11,7 @@ import { FILE_ACCESS, JwtPayload } from 'src/types';
 import { UploadService } from 'src/upload/upload.service';
 import { isAddress } from 'ethers';
 import { NotificationType } from 'src/notification/dto/nudge.dto';
+import { Prisma } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
@@ -136,17 +137,25 @@ export class UsersService {
         },
       });
 
-      const likedUsers = await this.prisma.likes.findMany({
-        where: {
-          likerAddress: currUser?.walletAddress?.toLowerCase() || undefined,
-        },
-        select: {
-          targetAddress: true,
-        },
-      });
+      let likedAddresses: string[] = [];
 
-      const likedAddresses =
-        likedUsers?.map((user) => user.targetAddress?.toLowerCase()) ?? [];
+      if (currUser?.walletAddress) {
+        const likedUsers = await this.prisma.likes.findMany({
+          where: {
+            likerAddress: {
+              equals: currUser.walletAddress,
+              mode: 'insensitive',
+            },
+            status: true,
+          },
+          select: {
+            targetAddress: true,
+          },
+        });
+
+        likedAddresses =
+          likedUsers?.map((user) => user.targetAddress?.toLowerCase()) ?? [];
+      }
 
       const whereQueryAnd: any[] = [{ id: { not: { equals: user.userId } } }];
 
@@ -155,7 +164,8 @@ export class UsersService {
           OR: [
             {
               walletAddress: {
-                not: { equals: currUser.walletAddress?.toLowerCase() },
+                not: currUser?.walletAddress,
+                mode: 'insensitive',
               },
             },
             { walletAddress: null },
@@ -164,7 +174,14 @@ export class UsersService {
       }
       if (likedAddresses.length) {
         whereQueryAnd.push({
-          walletAddress: { notIn: likedAddresses },
+          OR: [
+            {
+              walletAddress: { notIn: likedAddresses, mode: 'insensitive' },
+            },
+            {
+              walletAddress: null,
+            },
+          ],
         });
       }
 
@@ -263,8 +280,8 @@ export class UsersService {
         throw new BadRequestException('User wallet address not found');
       }
 
-      const whereQuery = {
-        likerAddress: currUser.walletAddress?.toLowerCase(),
+      const whereQuery: Prisma.LikesWhereInput = {
+        likerAddress: { equals: currUser.walletAddress, mode: 'insensitive' },
         status: true,
       };
 
@@ -281,6 +298,52 @@ export class UsersService {
               lastActiveOn: true,
               profile: true,
               files: true,
+              matchA: {
+                where: {
+                  OR: [
+                    {
+                      addressA: {
+                        equals: currUser.walletAddress,
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      addressB: {
+                        equals: currUser.walletAddress,
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
+                },
+              },
+              matchB: {
+                where: {
+                  OR: [
+                    {
+                      addressA: {
+                        equals: currUser.walletAddress,
+                        mode: 'insensitive',
+                      },
+                    },
+                    {
+                      addressB: {
+                        equals: currUser.walletAddress,
+                        mode: 'insensitive',
+                      },
+                    },
+                  ],
+                },
+              },
+              ChatRoomA: {
+                where: {
+                  OR: [{ userAId: currUser.id }, { userBId: currUser.id }],
+                },
+              },
+              ChatRoomB: {
+                where: {
+                  OR: [{ userAId: currUser.id }, { userBId: currUser.id }],
+                },
+              },
             },
           },
         },
@@ -300,6 +363,60 @@ export class UsersService {
           user.profile.profilePicture = await this.uploadService.getSignedUrl(
             user.profile.profilePicture,
           );
+        }
+
+        const matchA = user.matchA?.[0];
+        const matchB = user.matchB?.[0];
+
+        const matchAAddresses = [matchA?.addressA, matchA?.addressB]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+        const matchBAddresses = [matchB?.addressA, matchB?.addressB]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+
+        const currUserAddress = [currUser?.walletAddress, user?.walletAddress]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+
+        if (
+          matchAAddresses === currUserAddress ||
+          matchBAddresses === currUserAddress
+        ) {
+          (user as any).isMatched = true;
+        }
+
+        const chatRoomA = user.ChatRoomA?.[0];
+        const chatRoomB = user.ChatRoomB?.[0];
+        const chatRoomAIds = [chatRoomA?.userAId, chatRoomA?.userBId]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+
+        const chatRoomBIds = [chatRoomB?.userAId, chatRoomB?.userBId]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+        const currUserIds = [currUser?.id, user?.id]
+          .filter((e) => !!e)
+          .sort()
+          .join(',')
+          .toLowerCase();
+
+        if (chatRoomAIds === currUserIds) {
+          (user as any).chatRoomId = chatRoomA.id;
+        }
+
+        if (chatRoomBIds === currUserIds) {
+          (user as any).chatRoomId = chatRoomB.id;
         }
       }
 
@@ -482,10 +599,49 @@ export class UsersService {
         throw new Error('Wallet not found');
       }
 
+      const userAId = address.userA.id;
+      const userBId = address.userB.id;
+
+      let chatRoom = await this.prisma.chatRoom.findFirst({
+        where: {
+          OR: [
+            {
+              AND: [{ userAId: userAId }, { userBId: userBId }],
+            },
+            {
+              AND: [{ userAId: userBId }, { userBId: userAId }],
+            },
+          ],
+        },
+      });
+
+      if (!chatRoom) {
+        chatRoom = await this.prisma.chatRoom.create({
+          data: {
+            userAId: userAId,
+            userBId: userBId,
+          },
+        });
+      }
+
+      if (address.userA.profile?.profilePicture) {
+        address.userA.profile.profilePicture =
+          await this.uploadService.getSignedUrl(
+            address.userA.profile.profilePicture,
+          );
+      }
+      if (address.userB.profile?.profilePicture) {
+        address.userB.profile.profilePicture =
+          await this.uploadService.getSignedUrl(
+            address.userB.profile.profilePicture,
+          );
+      }
+
       return {
         status: 'success',
         data: {
           ...address,
+          chatRoomId: chatRoom.id,
         },
       };
     } catch (error) {

@@ -31,6 +31,7 @@ enum CHAT_EVENTS {
   MESSAGE_RECEIVED = 'messageReceived',
   MESSAGE_READ = 'messageRead',
   LOG_OUT = 'logOut',
+  HEART_BEAT = 'heartbeat',
 }
 
 enum EMIT_EVENTS {
@@ -143,6 +144,11 @@ export class WebSocketGateway
     if (client.user) {
       this.removeUserSocket(client.user.userId, client.id);
       this.broadcastUserStatus(client.user.userId, false);
+      console.log(
+        `Client disconnected: ${client.id} (User: ${client.user.userId})`,
+      );
+    } else {
+      console.log(`Client disconnected: ${client.id}`);
     }
   }
 
@@ -166,6 +172,15 @@ export class WebSocketGateway
     return (
       this.userSockets.has(userId) && this.userSockets.get(userId)!.size > 0
     );
+  }
+
+  @SubscribeMessage(CHAT_EVENTS.HEART_BEAT)
+  async handleHeartbeat(@ConnectedSocket() client: UserSocket) {
+    console.log(`Heartbeat received from client: ${client.user?.userId}`);
+
+    return {
+      status: 'alive',
+    };
   }
 
   @SubscribeMessage(CHAT_EVENTS.LOG_OUT)
@@ -475,15 +490,15 @@ export class WebSocketGateway
     });
   }
 
-  async emitMatchEvent(userAId: string, userBId: string) {
+  async emitMatchEvent(userAAddress: string, userBAddress: string) {
     const walletInfo = await this.prisma.multiSigWallet.findFirst({
       where: {
         OR: [
           {
-            AND: [{ addressA: userAId }, { addressB: userBId }],
+            AND: [{ addressA: userAAddress }, { addressB: userBAddress }],
           },
           {
-            AND: [{ addressA: userBId }, { addressB: userAId }],
+            AND: [{ addressA: userBAddress }, { addressB: userAAddress }],
           },
         ],
       },
@@ -513,10 +528,24 @@ export class WebSocketGateway
       id: walletInfo?.id,
       createdAt: walletInfo?.createdAt,
       updatedAt: walletInfo?.updatedAt,
+      walletAddress: walletInfo?.walletAddress,
     };
 
     const userAData = { ...walletInfo?.userA, multiSigWallet };
     const userBData = { ...walletInfo?.userB, multiSigWallet };
+
+    const chatRoom = await this.prisma.chatRoom.findFirst({
+      where: {
+        OR: [
+          {
+            AND: [{ userAId: userAData.id }, { userBId: userBData.id }],
+          },
+          {
+            AND: [{ userAId: userBData.id }, { userBId: userAData.id }],
+          },
+        ],
+      },
+    });
 
     if (userAData.profile?.profilePicture) {
       userAData.profile.profilePicture = await this.uploadService.getSignedUrl(
@@ -533,17 +562,19 @@ export class WebSocketGateway
     // Emit to both users
     if (userAData.id && this.isUserOnline(userAData.id)) {
       this.emitToUser(userAData.id, EMIT_EVENTS.NEW_MATCH_EVENT, {
-        matchedWith: userBData,
+        ...userBData,
         userAId: userAData.id,
         userBId: userBData.id,
+        chatRoomId: chatRoom?.id,
       });
     }
 
     if (userBData.id && this.isUserOnline(userBData.id)) {
       this.emitToUser(userBData.id, EMIT_EVENTS.NEW_MATCH_EVENT, {
-        matchedWith: userAData,
+        ...userAData,
         userAId: userAData.id,
         userBId: userBData.id,
+        chatRoomId: chatRoom?.id,
       });
     }
   }
