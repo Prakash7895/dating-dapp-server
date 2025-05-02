@@ -2,12 +2,14 @@ import { Injectable, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
 import { Contract, ethers, Interface, WebSocketProvider } from 'ethers';
 import { PrismaService } from 'src/prisma.service';
 import * as matchMakingAbi from 'src/abis/MatchMaking.json';
+import * as soulboundNftAbi from 'src/abis/SoulboundNft.json';
 import { WebSocketGateway } from 'src/web-socket/web-socket.gateway';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit, OnModuleDestroy {
   private wsProvider: WebSocketProvider | null = null;
-  private contract: Contract | null = null;
+  private matchMakingContract: Contract | null = null;
+  private soulboundNftContract: Contract | null = null;
   private isInitialized = false;
 
   constructor(
@@ -24,7 +26,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
     await this.closeWeb3Socket();
   }
 
-  private async setupEventListeners(contract: Contract) {
+  private async setupMMEventListeners(contract: Contract) {
     // Remove any existing listeners
     await contract.removeAllListeners();
 
@@ -208,7 +210,82 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
 
     // Log listener count for debugging
     const listenerCount = await contract.listenerCount();
-    console.log(`✅ Total event listeners attached: ${listenerCount}`);
+    console.log(`✅ MM Total event listeners attached: ${listenerCount}`);
+  }
+
+  private async setupSNEventListeners(contract: Contract) {
+    // Remove any existing listeners
+    await contract.removeAllListeners();
+
+    // Like event listener
+    await contract.on(
+      'ProfileMinted',
+      async (user: string, tokenId: number, tokenUri: string) => {
+        console.log('🎨 ProfileMinted Event triggered');
+        console.log('user:', user);
+        console.log('tokenId:', tokenId);
+        console.log('tokenUri:', tokenUri);
+
+        try {
+          const existingNfts = await this.prisma.nfts.findMany({
+            where: {
+              walletAddress: { equals: user, mode: 'insensitive' },
+              active: true,
+            },
+          });
+          if (existingNfts.length) {
+            await this.prisma.nfts.updateMany({
+              where: { id: { in: existingNfts.map((el) => el.id) } },
+              data: { active: false },
+            });
+          }
+          await this.prisma.nfts.create({
+            data: {
+              walletAddress: user?.toLowerCase(),
+              tokenId: Number(tokenId),
+              tokenUri,
+              active: true,
+            },
+          });
+
+          console.log('✅ ProfileMinted event stored in database');
+        } catch (error) {
+          console.error('❌ Error storing ProfileMinted event:', error);
+        }
+      },
+    );
+
+    await contract.on(
+      'ActiveNftChanged',
+      async (user: string, tokenId: number) => {
+        console.log('🔄 ActiveNftChanged Event triggered');
+        console.log('user:', user);
+        console.log('tokenId:', tokenId);
+
+        try {
+          await this.prisma.nfts.updateMany({
+            where: { walletAddress: { equals: user, mode: 'insensitive' } },
+            data: { active: false },
+          });
+
+          await this.prisma.nfts.update({
+            where: {
+              walletAddress: { equals: user, mode: 'insensitive' },
+              tokenId: Number(tokenId),
+            },
+            data: { active: true },
+          });
+
+          console.log('✅ Active NFT updated in database');
+        } catch (error) {
+          console.error('❌ Error updating ActiveNftChanged event:', error);
+        }
+      },
+    );
+
+    // Log listener count for debugging
+    const listenerCount = await contract.listenerCount();
+    console.log(`✅ SN Total event listeners attached: ${listenerCount}`);
   }
 
   private async initializeWeb3Socket() {
@@ -225,35 +302,46 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
       this.wsProvider = new WebSocketProvider(url);
 
       const contractAddress = process.env.MATCH_MAKING_ADDRESS!;
-      console.log('🔗 Connecting to contract at:', contractAddress);
+      const soulboundAddress = process.env.SOULBOUND_NFT_ADDRESS!;
+      console.log('🔗 Connecting to MM contract at:', contractAddress);
+      console.log('🔗 Connecting to SN contract at:', soulboundAddress);
 
       console.log('🔄 Initializing WebSocket connection...');
 
-      const iface = new Interface(matchMakingAbi);
+      const ifaceMM = new Interface(matchMakingAbi);
+      const ifaceSN = new Interface(soulboundNftAbi);
 
-      this.contract = new ethers.Contract(
+      this.matchMakingContract = new ethers.Contract(
         contractAddress,
-        iface,
+        ifaceMM,
         this.wsProvider,
       );
 
-      const cnt = await this.contract.listenerCount();
+      this.soulboundNftContract = new ethers.Contract(
+        soulboundAddress,
+        ifaceSN,
+        this.wsProvider,
+      );
+
+      const cnt = await this.matchMakingContract.listenerCount();
       console.log('CNT', cnt);
 
-      await this.contract.removeAllListeners();
+      await this.matchMakingContract.removeAllListeners();
+      await this.soulboundNftContract.removeAllListeners();
 
-      const cnt1 = await this.contract.listenerCount();
+      const cnt1 = await this.matchMakingContract.listenerCount();
       console.log('CNT1', cnt1);
-      const listeners = await this.contract.listeners();
+      const listeners = await this.matchMakingContract.listeners();
       console.log('listeners', listeners);
 
       console.log('Attaching listeners...');
-      await this.setupEventListeners(this.contract);
+      await this.setupMMEventListeners(this.matchMakingContract);
+      await this.setupSNEventListeners(this.soulboundNftContract);
 
-      const cnt2 = await this.contract.listenerCount();
+      const cnt2 = await this.matchMakingContract.listenerCount();
       console.log('CNT2', cnt2);
 
-      const listeners1 = await this.contract.listeners();
+      const listeners1 = await this.matchMakingContract.listeners();
       console.log('listeners1', listeners1);
 
       this.wsProvider.on('error', async (error) => {
@@ -272,9 +360,14 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async closeWeb3Socket() {
-    if (this.contract) {
-      await this.contract.removeAllListeners();
-      this.contract = null;
+    if (this.matchMakingContract) {
+      await this.matchMakingContract.removeAllListeners();
+      this.matchMakingContract = null;
+    }
+
+    if (this.soulboundNftContract) {
+      await this.soulboundNftContract.removeAllListeners();
+      this.soulboundNftContract = null;
     }
 
     if (this.wsProvider) {

@@ -219,6 +219,11 @@ export class UsersService {
               s3Key: true,
             },
           },
+          _count: {
+            select: {
+              Nfts: true,
+            },
+          },
         },
       });
 
@@ -234,6 +239,8 @@ export class UsersService {
             user.profile.profilePicture,
           );
         }
+
+        (user as any).isVerified = !!user._count.Nfts;
       }
 
       const totalUsers = await this.prisma.user.count({
@@ -765,6 +772,138 @@ export class UsersService {
     } catch (error) {
       throw new BadRequestException({
         error: "failed getting user's multisig wallets",
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getUserById(userId: string, _user: JwtPayload) {
+    try {
+      const currUser = await this.prisma.user.findUnique({
+        where: {
+          id: _user.userId,
+        },
+        select: {
+          _count: {
+            select: {
+              Nfts: true,
+            },
+          },
+        },
+      });
+      const isCurrUserVerified = !!currUser?._count.Nfts;
+
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          email: true,
+          lastActiveOn: true,
+          profile: true,
+          walletAddress: true,
+          _count: {
+            select: {
+              Nfts: true,
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        throw new Error('user not found');
+      }
+
+      let isMatched = false;
+      if (_user.walletAddress && user.walletAddress) {
+        const likes = await this.prisma.likes.findFirst({
+          where: {
+            likerAddress: _user.walletAddress,
+            targetAddress: user.walletAddress,
+          },
+        });
+        (user as any).likedAt = likes?.createdAt ?? null;
+
+        const match = await this.prisma.matches.findFirst({
+          where: {
+            OR: [
+              {
+                addressA: { equals: _user.walletAddress, mode: 'insensitive' },
+                addressB: { equals: user.walletAddress, mode: 'insensitive' },
+              },
+              {
+                addressA: { equals: user.walletAddress, mode: 'insensitive' },
+                addressB: { equals: _user.walletAddress, mode: 'insensitive' },
+              },
+            ],
+          },
+        });
+
+        (user as any).matchedAt = match?.createdAt ?? null;
+
+        if (match) {
+          isMatched = true;
+          const chatRoom = await this.prisma.chatRoom.findFirst({
+            where: {
+              OR: [
+                { userAId: user.id, userBId: _user.userId },
+                { userAId: _user.userId, userBId: user.id },
+              ],
+            },
+          });
+          (user as any).chatRoomId = chatRoom?.id;
+        }
+      }
+
+      if (isCurrUserVerified) {
+        const files = await this.prisma.userFile.findMany({
+          where: {
+            userId: user.id,
+            ...(!isMatched ? { access: FILE_ACCESS.PUBLIC } : {}),
+          },
+          take: 10,
+          orderBy: {
+            createdAt: 'desc',
+          },
+        });
+        const fileUrls = files.map((file) => file.s3Key);
+        const signedUrls = await this.uploadService.getSignedUrls(fileUrls);
+
+        (user as any).files = signedUrls.map((file) => file.signedUrl);
+
+        if (user.walletAddress) {
+          const nfts = await this.prisma.nfts.findMany({
+            where: {
+              walletAddress: user.walletAddress,
+            },
+            take: 10,
+            orderBy: {
+              createdAt: 'desc',
+            },
+          });
+
+          (user as any).nfts = nfts.map((el) => el.tokenUri);
+        }
+      }
+
+      if (user.profile?.profilePicture) {
+        user.profile.profilePicture = await this.uploadService.getSignedUrl(
+          user.profile.profilePicture,
+        );
+      }
+
+      return {
+        status: 'success',
+        data: {
+          ...user,
+          isVerified: !!user._count.Nfts,
+        },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting user by id',
         message: error.message,
         status: 'error',
       });

@@ -62,4 +62,10 @@ export class UsersController {
   getMyMultiSigWallets(@Param() param: AddressDto) {
     return this.usersService.getMyMultiSigWallets(param);
   }
+
+  @Get('/:id')
+  @UseGuards(JwtAuthGuard)
+  getUserById(@Param('id') id: string, @Req() req: RequestWithUser) {
+    return this.usersService.getUserById(id, req.user);
+  }
 }

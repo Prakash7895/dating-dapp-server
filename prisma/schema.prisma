@@ -65,6 +65,7 @@ model User {
   ChatMessage   ChatMessage[]
   nudger        Notification[]   @relation("nudger")
   Notification  Notification[]
+  Nfts          Nfts[]           @relation("nfts")
 
   @@index([email, walletAddress])
   @@map("users")
@@ -94,6 +95,22 @@ model UserFile {
 
   @@index([userId])
   @@map("user_files")
+}
+
+model Nfts {
+  id            String   @id @default(uuid())
+  walletAddress String
+  tokenUri      String
+  tokenId       Float
+  active        Boolean
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  user User @relation("nfts", fields: [walletAddress], references: [walletAddress], onDelete: Cascade)
+
+  @@unique([tokenId])
+  @@index([walletAddress])
+  @@map("nfts")
 }
 
 model Likes {
