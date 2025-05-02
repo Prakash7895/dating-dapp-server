@@ -297,7 +297,15 @@ export class UsersService {
               walletAddress: true,
               lastActiveOn: true,
               profile: true,
-              files: true,
+              files: {
+                orderBy: {
+                  createdAt: 'desc',
+                },
+                take: 3,
+                select: {
+                  s3Key: true,
+                },
+              },
               matchA: {
                 where: {
                   OR: [
@@ -482,7 +490,6 @@ export class UsersService {
               id: true,
               walletAddress: true,
               profile: true,
-              files: true,
             },
           },
           userB: {
@@ -492,7 +499,6 @@ export class UsersService {
               id: true,
               walletAddress: true,
               profile: true,
-              files: true,
             },
           },
         },
@@ -510,32 +516,52 @@ export class UsersService {
             ? l.userB
             : l.userA;
 
-        const files = user.files.map((file) => file.s3Key);
-
-        const signedUrls = await this.uploadService.getSignedUrls(files);
-
-        user.files = signedUrls.map((file) => file.signedUrl) as any;
-
         if (user.profile?.profilePicture) {
           user.profile.profilePicture = await this.uploadService.getSignedUrl(
             user.profile.profilePicture,
           );
         }
       }
+      const users = matchedUsers.map((l) => ({
+        ...(l.addressA?.toLowerCase() === currUser.walletAddress?.toLowerCase()
+          ? l.userB
+          : l.userA),
+        matchedAt: l.createdAt,
+        addressA: l.addressA,
+        addressB: l.addressB,
+        chatRoomId: '',
+      }));
+
+      const chatRooms = await this.prisma.chatRoom.findMany({
+        where: {
+          OR: [
+            {
+              userAId: currUser.id,
+              userBId: { in: users.map((el) => el.id) },
+            },
+            {
+              userAId: { in: users.map((el) => el.id) },
+              userBId: currUser.id,
+            },
+          ],
+        },
+      });
 
       return {
         status: 'success',
         message: 'Matched users retrieved successfully',
         data: {
-          users: matchedUsers.map((l) => ({
-            ...(l.addressA?.toLowerCase() ===
-            currUser.walletAddress?.toLowerCase()
-              ? l.userB
-              : l.userA),
-            matchedAt: l.createdAt,
-            addressA: l.addressA,
-            addressB: l.addressB,
-          })),
+          users: users.map((u) => {
+            const chatRoom = chatRooms.find(
+              (el) =>
+                (el.userAId === u.id && el.userBId === currUser.id) ||
+                (el.userAId === currUser.id && el.userBId === u.id),
+            );
+            return {
+              ...u,
+              chatRoomId: chatRoom?.id,
+            };
+          }),
           total: totalMatchedUsers,
         },
       };
