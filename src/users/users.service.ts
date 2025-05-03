@@ -780,20 +780,6 @@ export class UsersService {
 
   async getUserById(userId: string, _user: JwtPayload) {
     try {
-      const currUser = await this.prisma.user.findUnique({
-        where: {
-          id: _user.userId,
-        },
-        select: {
-          _count: {
-            select: {
-              Nfts: true,
-            },
-          },
-        },
-      });
-      const isCurrUserVerified = !!currUser?._count.Nfts;
-
       const user = await this.prisma.user.findFirst({
         where: {
           id: userId,
@@ -857,37 +843,6 @@ export class UsersService {
         }
       }
 
-      if (isCurrUserVerified) {
-        const files = await this.prisma.userFile.findMany({
-          where: {
-            userId: user.id,
-            ...(!isMatched ? { access: FILE_ACCESS.PUBLIC } : {}),
-          },
-          take: 10,
-          orderBy: {
-            createdAt: 'desc',
-          },
-        });
-        const fileUrls = files.map((file) => file.s3Key);
-        const signedUrls = await this.uploadService.getSignedUrls(fileUrls);
-
-        (user as any).files = signedUrls.map((file) => file.signedUrl);
-
-        if (user.walletAddress) {
-          const nfts = await this.prisma.nfts.findMany({
-            where: {
-              walletAddress: user.walletAddress,
-            },
-            take: 10,
-            orderBy: {
-              createdAt: 'desc',
-            },
-          });
-
-          (user as any).nfts = nfts.map((el) => el.tokenUri);
-        }
-      }
-
       if (user.profile?.profilePicture) {
         user.profile.profilePicture = await this.uploadService.getSignedUrl(
           user.profile.profilePicture,
@@ -904,6 +859,179 @@ export class UsersService {
     } catch (error) {
       throw new BadRequestException({
         error: 'failed getting user by id',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getUserPhotos(
+    userId: string,
+    _user: JwtPayload,
+    pagination: PaginationDto,
+  ) {
+    try {
+      const currUser = await this.prisma.user.findUnique({
+        where: {
+          id: _user.userId,
+        },
+        select: {
+          _count: {
+            select: {
+              Nfts: true,
+            },
+          },
+        },
+      });
+      const isCurrUserVerified = !!currUser?._count.Nfts;
+
+      if (!isCurrUserVerified) {
+        throw new BadRequestException(
+          'You are not allowed to view this user photos',
+        );
+      }
+
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+        },
+        select: {
+          walletAddress: true,
+        },
+      });
+
+      if (!user) {
+        throw new Error('user not found');
+      }
+
+      let isMatched = false;
+      if (_user.walletAddress && user.walletAddress) {
+        const match = await this.prisma.matches.findFirst({
+          where: {
+            OR: [
+              {
+                addressA: { equals: _user.walletAddress, mode: 'insensitive' },
+                addressB: { equals: user.walletAddress, mode: 'insensitive' },
+              },
+              {
+                addressA: { equals: user.walletAddress, mode: 'insensitive' },
+                addressB: { equals: _user.walletAddress, mode: 'insensitive' },
+              },
+            ],
+          },
+        });
+        if (match) {
+          isMatched = true;
+        }
+      }
+
+      const take = pagination.pageSize || 10;
+      const skip = pagination.pageNo ? (pagination.pageNo - 1) * take : 0;
+
+      const files = await this.prisma.userFile.findMany({
+        where: {
+          userId: userId,
+          ...(!isMatched ? { access: FILE_ACCESS.PUBLIC } : {}),
+        },
+        take,
+        skip,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+      const fileUrls = files.map((file) => file.s3Key);
+      const signedUrls = await this.uploadService.getSignedUrls(fileUrls);
+
+      const fileData = signedUrls.map((f) => {
+        const file = files.find((el) => el.s3Key === f.key);
+
+        return {
+          ...file,
+          s3Key: f.signedUrl,
+        };
+      });
+
+      return {
+        status: 'success',
+        data: fileData,
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting user photos by id',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async getUserNfts(
+    userId: string,
+    _user: JwtPayload,
+    pagination: PaginationDto,
+  ) {
+    try {
+      const currUser = await this.prisma.user.findUnique({
+        where: {
+          id: _user.userId,
+        },
+        select: {
+          _count: {
+            select: {
+              Nfts: true,
+            },
+          },
+        },
+      });
+      const isCurrUserVerified = !!currUser?._count.Nfts;
+
+      if (!isCurrUserVerified) {
+        throw new BadRequestException(
+          'You are not allowed to view this user nfts',
+        );
+      }
+
+      const user = await this.prisma.user.findFirst({
+        where: {
+          id: userId,
+        },
+        select: {
+          id: true,
+          walletAddress: true,
+        },
+      });
+
+      if (!user) {
+        throw new Error('user not found');
+      }
+
+      if (!user.walletAddress) {
+        return {
+          status: 'success',
+          data: [],
+        };
+      }
+
+      const take = pagination.pageSize || 10;
+      const skip = pagination.pageNo ? (pagination.pageNo - 1) * take : 0;
+
+      const nfts = await this.prisma.nfts.findMany({
+        where: {
+          walletAddress: user.walletAddress,
+        },
+        take,
+        skip,
+        orderBy: {
+          createdAt: 'desc',
+        },
+      });
+
+      return {
+        status: 'success',
+        data: nfts,
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'failed getting user nfts by id',
         message: error.message,
         status: 'error',
       });

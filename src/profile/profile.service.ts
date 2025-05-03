@@ -39,6 +39,7 @@ export class ProfileService {
                   read: false,
                 },
               },
+              Nfts: true,
             },
           },
         },
@@ -62,7 +63,11 @@ export class ProfileService {
       return {
         status: 'success',
         message: 'User found',
-        data: { ...userData, unreadNotifications },
+        data: {
+          ...userData,
+          unreadNotifications,
+          isVerified: savedUser._count.Nfts > 0,
+        },
       };
     } catch (error) {
       throw new BadRequestException({

@@ -68,4 +68,24 @@ export class UsersController {
   getUserById(@Param('id') id: string, @Req() req: RequestWithUser) {
     return this.usersService.getUserById(id, req.user);
   }
+
+  @Get('/:id/photos')
+  @UseGuards(JwtAuthGuard)
+  getUserPhotos(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.usersService.getUserPhotos(id, req.user, pagination);
+  }
+
+  @Get('/:id/nfts')
+  @UseGuards(JwtAuthGuard)
+  getUserNfts(
+    @Param('id') id: string,
+    @Req() req: RequestWithUser,
+    @Query() pagination: PaginationDto,
+  ) {
+    return this.usersService.getUserNfts(id, req.user, pagination);
+  }
 }
