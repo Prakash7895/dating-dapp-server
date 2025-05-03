@@ -294,7 +294,7 @@ export class ProfileService {
         where: { walletAddress: data.walletAddress?.toLowerCase() },
       });
       if (walletAddressExists) {
-        throw new BadRequestException('Wallet address already exists');
+        throw new BadRequestException('Cannot add this wallet address.');
       }
 
       await this.prisma.user.update({
@@ -310,8 +310,8 @@ export class ProfileService {
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'Failed to get current user',
-        error: error.message,
+        error: 'Failed to get current user',
+        message: error.message,
         status: 'error',
       });
     }
