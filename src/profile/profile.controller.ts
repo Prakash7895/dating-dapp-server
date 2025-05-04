@@ -17,6 +17,7 @@ import { JwtAuthGuard } from 'src/jwt-auth/jwt-auth.guard';
 import { RequestWithUser } from 'src/types';
 import {
   EnableEmailLoginDto,
+  OnboardUserDto,
   UpdateEmailDto,
   UpdatePasswordDto,
   UpdateUserDto,
@@ -158,5 +159,26 @@ export class ProfileController {
     @Body() body: EnableEmailLoginDto,
   ) {
     return this.profileService.enableEmailLogin(body, req.user);
+  }
+
+  @Put('/onboard')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(FileInterceptor('file'))
+  updateCurrUserData(
+    @Req() req: RequestWithUser,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({
+          fileType: /(jpg|jpeg|png)$/,
+        })
+        .addMaxSizeValidator({
+          maxSize: 5 * 1024 * 1024, // 5MB
+        })
+        .build(),
+    )
+    file: Express.Multer.File,
+    @Body() body: OnboardUserDto,
+  ) {
+    return this.profileService.onboardCurrUser(file, body, req.user);
   }
 }

@@ -3,6 +3,7 @@ import { JwtPayload } from 'src/types';
 import { PrismaService } from 'src/prisma.service';
 import {
   EnableEmailLoginDto,
+  OnboardUserDto,
   UpdateEmailDto,
   UpdatePasswordDto,
   UpdateUserDto,
@@ -561,6 +562,61 @@ export class ProfileService {
     } catch (error) {
       throw new BadRequestException({
         error: 'Failed to get current user',
+        message: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async onboardCurrUser(
+    file: Express.Multer.File,
+    data: OnboardUserDto,
+    user: JwtPayload,
+  ) {
+    try {
+      const savedUser = await this.prisma.user.findUnique({
+        where: { id: user.userId },
+        select: {
+          id: true,
+          profile: true,
+          walletAddress: true,
+          email: true,
+        },
+      });
+
+      if (!savedUser) {
+        throw new BadRequestException('User not found');
+      }
+
+      const fileKey = await this.uploadService.uploadFile(
+        file,
+        user.userId,
+        'profilePicture',
+      );
+
+      const profile = await this.prisma.profile.update({
+        where: { id: savedUser.profile?.id },
+        data: {
+          profilePicture: fileKey,
+          bio: data.bio,
+          city: data.city,
+          country: data.country,
+          interests: data.interests,
+        },
+      });
+
+      if (savedUser.profile?.profilePicture) {
+        await this.uploadService.deleteFile(savedUser.profile.profilePicture);
+      }
+
+      return {
+        status: 'success',
+        message: 'User onboarded successfully',
+        data: { ...savedUser, profile },
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'Failed to onboard user',
         message: error.message,
         status: 'error',
       });

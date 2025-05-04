@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
@@ -131,4 +131,30 @@ export class EnableEmailLoginDto {
   @IsBoolean()
   @IsNotEmpty()
   enable: boolean;
+}
+
+export class OnboardUserDto {
+  @IsString()
+  @MinLength(50, { message: 'Minimum 50 characters are required.' })
+  @MaxLength(500, { message: 'Upto 500 characters are allowed.' })
+  bio: string;
+
+  @Transform(({ value }) => {
+    return JSON.parse(value);
+  })
+  @IsArray()
+  @ArrayMinSize(1, { message: 'Atleast 1 interest is required.' })
+  @ArrayMaxSize(15, { message: 'Upto 15 Interests are allowed.' })
+  @IsString({ each: true })
+  interests: string[];
+
+  @IsString()
+  @MinLength(1, { message: 'City is required' })
+  @MaxLength(50, { message: 'Upto 50 characters are allowed.' })
+  city: string;
+
+  @IsString()
+  @MinLength(1, { message: 'Country is required' })
+  @MaxLength(30, { message: 'Upto 30 characters are allowed.' })
+  country: string;
 }
