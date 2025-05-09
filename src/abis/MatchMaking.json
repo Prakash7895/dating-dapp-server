@@ -4,37 +4,15 @@
     "inputs": [
       { "name": "_amount", "type": "uint256", "internalType": "uint256" },
       {
-        "name": "_likeExpirationDays",
+        "name": "_likeExpMinutes",
         "type": "uint256",
         "internalType": "uint256"
       },
-      {
-        "name": "priceFeedAddress",
-        "type": "address",
-        "internalType": "address"
-      }
+      { "name": "_commission", "type": "uint256", "internalType": "uint256" }
     ],
     "stateMutability": "nonpayable"
   },
   { "type": "receive", "stateMutability": "payable" },
-  {
-    "type": "function",
-    "name": "getPriceInCents",
-    "inputs": [
-      { "name": "_amount", "type": "uint256", "internalType": "uint256" }
-    ],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getWeiFromCents",
-    "inputs": [
-      { "name": "_amount", "type": "uint256", "internalType": "uint256" }
-    ],
-    "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
-    "stateMutability": "view"
-  },
   {
     "type": "function",
     "name": "like",
@@ -60,7 +38,7 @@
   },
   {
     "type": "function",
-    "name": "s_likeExpirationDays",
+    "name": "s_likeExpMinutes",
     "inputs": [],
     "outputs": [{ "name": "", "type": "uint256", "internalType": "uint256" }],
     "stateMutability": "view"
@@ -73,9 +51,9 @@
       { "name": "", "type": "address", "internalType": "address" }
     ],
     "outputs": [
-      { "name": "like", "type": "bool", "internalType": "bool" },
+      { "name": "amount", "type": "uint256", "internalType": "uint256" },
       { "name": "timestamp", "type": "uint256", "internalType": "uint256" },
-      { "name": "amount", "type": "uint256", "internalType": "uint256" }
+      { "name": "like", "type": "bool", "internalType": "bool" }
     ],
     "stateMutability": "view"
   },
@@ -113,18 +91,9 @@
   },
   {
     "type": "function",
-    "name": "setLikeAmount",
-    "inputs": [
-      { "name": "_amount", "type": "uint256", "internalType": "uint256" }
-    ],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
     "name": "setLikeExpirationDays",
     "inputs": [
-      { "name": "_days", "type": "uint256", "internalType": "uint256" }
+      { "name": "_minutes", "type": "uint256", "internalType": "uint256" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
@@ -142,8 +111,7 @@
     "type": "function",
     "name": "unSetLikeOnExpiration",
     "inputs": [
-      { "name": "user1", "type": "address", "internalType": "address" },
-      { "name": "user2", "type": "address", "internalType": "address" }
+      { "name": "target", "type": "address", "internalType": "address" }
     ],
     "outputs": [],
     "stateMutability": "nonpayable"

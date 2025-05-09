@@ -37,15 +37,6 @@
   },
   {
     "type": "function",
-    "name": "createUserProfile",
-    "inputs": [
-      { "name": "tokenUri", "type": "string", "internalType": "string" }
-    ],
-    "outputs": [],
-    "stateMutability": "payable"
-  },
-  {
-    "type": "function",
     "name": "getActiveProfileNft",
     "inputs": [
       { "name": "user", "type": "address", "internalType": "address" }
@@ -71,15 +62,6 @@
     "outputs": [
       { "name": "", "type": "uint256[]", "internalType": "uint256[]" }
     ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "getUserTokenUris",
-    "inputs": [
-      { "name": "user", "type": "address", "internalType": "address" }
-    ],
-    "outputs": [{ "name": "", "type": "string[]", "internalType": "string[]" }],
     "stateMutability": "view"
   },
   {
@@ -189,6 +171,13 @@
   },
   {
     "type": "function",
+    "name": "setMaxWithDrawableAmount",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "supportsInterface",
     "inputs": [
       { "name": "interfaceId", "type": "bytes4", "internalType": "bytes4" }
@@ -231,6 +220,15 @@
     ],
     "outputs": [],
     "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "verifyUser",
+    "inputs": [
+      { "name": "tokenUri", "type": "string", "internalType": "string" }
+    ],
+    "outputs": [],
+    "stateMutability": "payable"
   },
   {
     "type": "event",
