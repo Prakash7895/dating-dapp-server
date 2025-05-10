@@ -362,6 +362,9 @@ export class UsersService {
             },
           },
         },
+        orderBy: {
+          createdAt: 'desc',
+        },
         skip,
         take,
       });
@@ -511,6 +514,9 @@ export class UsersService {
         },
         skip,
         take,
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
 
       const totalMatchedUsers = await this.prisma.matches.count({
