@@ -4,6 +4,7 @@ import { PrismaService } from 'src/prisma.service';
 import * as matchMakingAbi from 'src/abis/MatchMaking.json';
 import * as soulboundNftAbi from 'src/abis/SoulboundNft.json';
 import { WebSocketGateway } from 'src/web-socket/web-socket.gateway';
+import { BlockEventName, ContractName } from 'src/types';
 
 @Injectable()
 export class BlockchainService implements OnModuleInit, OnModuleDestroy {
@@ -288,6 +289,37 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
     console.log(`✅ SN Total event listeners attached: ${listenerCount}`);
   }
 
+  async getDeployedBlockNumberFromCode(
+    provider: ethers.Provider,
+    contractAddress: string,
+  ) {
+    try {
+      let blockNumber = await provider.getBlockNumber(); // Get the latest block number
+      let deployedBlock: number | null = null;
+
+      // Binary search to find the block where the contract was deployed
+      let high = blockNumber;
+      let low = blockNumber > 10000 ? blockNumber - 10000 : 0;
+
+      while (low <= high) {
+        const mid = Math.floor((low + high) / 2);
+        const code = await provider.getCode(contractAddress, mid);
+        console.log('Checking mid block', mid);
+        if (code !== '0x') {
+          deployedBlock = mid;
+          high = mid - 1; // Search earlier blocks
+        } else {
+          low = mid + 1; // Search later blocks
+        }
+      }
+
+      return deployedBlock;
+    } catch (error) {
+      console.log('Error fetching deployed block number from code:', error);
+      return null;
+    }
+  }
+
   private async initializeWeb3Socket() {
     if (this.isInitialized) {
       console.log('Web3 socket already initialized');
@@ -321,6 +353,41 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
         soulboundAddress,
         ifaceSN,
         this.wsProvider,
+      );
+
+      const blocksExists = await this.prisma.blockTracker.count();
+      if (blocksExists === 0) {
+        const matchMackingBlock = await this.getDeployedBlockNumberFromCode(
+          this.wsProvider,
+          contractAddress,
+        );
+
+        const soulboundBlock = await this.getDeployedBlockNumberFromCode(
+          this.wsProvider,
+          soulboundAddress,
+        );
+        const dt: any[] = [];
+        Object.keys(BlockEventName).forEach((cntr) =>
+          dt.push(
+            ...Object.keys(BlockEventName[cntr]).map((eventName) => ({
+              contractName: cntr,
+              eventName: eventName,
+              lastBlockNumber:
+                (cntr === ContractName.MatchMaking
+                  ? matchMackingBlock
+                  : soulboundBlock) ?? 0,
+            })),
+          ),
+        );
+        await this.prisma.blockTracker.createMany({
+          data: dt,
+        });
+      }
+
+      await this.syncWithBlockchain(
+        this.wsProvider,
+        this.matchMakingContract,
+        this.soulboundNftContract,
       );
 
       const cnt = await this.matchMakingContract.listenerCount();
@@ -376,5 +443,436 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
     }
 
     this.isInitialized = false;
+  }
+
+  async syncWithBlockchain(
+    provider: ethers.WebSocketProvider,
+    matchMakingContract: Contract,
+    soulboundNftContract: Contract,
+  ) {
+    try {
+      const latestBlock = await provider?.getBlockNumber();
+      console.log('Latest block number:', latestBlock);
+
+      const blocksData = await this.prisma.blockTracker.findMany();
+
+      const contractNames = Object.keys(BlockEventName);
+      for (let i = 0; i < contractNames.length; i++) {
+        const contractName = contractNames[i];
+
+        const contract =
+          contractName === ContractName.MatchMaking
+            ? matchMakingContract
+            : soulboundNftContract;
+
+        const eventNames = Object.keys(BlockEventName[contractName]);
+        for (let j = 0; j < eventNames.length; j++) {
+          const eventName = eventNames[j];
+          const blockData = blocksData.find(
+            (b) => b.contractName === contractName && b.eventName === eventName,
+          );
+
+          const fromBlock = blockData?.lastBlockNumber || 0;
+
+          await this.fetchPastEvents(
+            contract,
+            eventName,
+            fromBlock,
+            latestBlock,
+          );
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error syncing with blockchain:', error);
+    }
+  }
+
+  private async fetchPastEvents(
+    contract: Contract,
+    eventName: string,
+    fromBlock: number,
+    toBlock: number,
+  ) {
+    try {
+      console.log(
+        `Fetching past events for ${eventName} from block ${fromBlock} to ${toBlock}...`,
+      );
+
+      const events = await contract?.queryFilter(
+        contract.filters[eventName](),
+        fromBlock,
+        toBlock,
+      );
+
+      const eventsData = events
+        .map((ev) => {
+          const event = ev as ethers.EventLog;
+          const blockNumber = event.blockNumber;
+          console.log(`Processing past event: ${eventName}`, event.args);
+          if (eventName === BlockEventName[ContractName.MatchMaking].Like) {
+            return {
+              event: eventName,
+              liker: event.args.liker,
+              target: event.args.target,
+            };
+          } else if (
+            eventName === BlockEventName[ContractName.MatchMaking].UnLike
+          ) {
+            return {
+              event: eventName,
+              liker: event.args.liker,
+              target: event.args.target,
+            };
+          } else if (
+            eventName === BlockEventName[ContractName.MatchMaking].Match
+          ) {
+            return {
+              event: eventName,
+              userA: event.args.userA,
+              userB: event.args.userB,
+            };
+          } else if (
+            eventName ===
+            BlockEventName[ContractName.MatchMaking].MultiSigCreated
+          ) {
+            return {
+              event: eventName,
+              walletAddress: event.args.walletAddress,
+              userA: event.args.userA,
+              userB: event.args.userB,
+            };
+          } else if (
+            eventName ===
+            BlockEventName[ContractName.SoulboundNft].ProfileMinted
+          ) {
+            return {
+              event: eventName,
+              user: event.args.user,
+              tokenId: event.args.tokenId,
+              tokenUri: event.args.tokenUri,
+            };
+          } else if (
+            eventName ===
+            BlockEventName[ContractName.SoulboundNft].ActiveNftChanged
+          ) {
+            return {
+              event: eventName,
+              user: event.args.user,
+              tokenId: event.args.tokenId,
+              blockNumber: blockNumber,
+            };
+          }
+          return null;
+        })
+        .filter((e) => e !== null);
+
+      await this.handleLikeEvent(
+        eventsData.filter(
+          (e) => e.event === BlockEventName[ContractName.MatchMaking].Like,
+        ) as any,
+        toBlock,
+      );
+
+      await this.handleUnLikeEvent(
+        eventsData.filter(
+          (e) => e.event === BlockEventName[ContractName.MatchMaking].UnLike,
+        ) as any,
+        toBlock,
+      );
+
+      await this.handleMatchEvent(
+        eventsData.filter(
+          (e) => e.event === BlockEventName[ContractName.MatchMaking].Match,
+        ) as any,
+        toBlock,
+      );
+
+      await this.handleMultiSigWalletEvent(
+        eventsData.filter(
+          (e) =>
+            e.event ===
+            BlockEventName[ContractName.MatchMaking].MultiSigCreated,
+        ) as any,
+        toBlock,
+      );
+
+      await this.handleProfileMintedEvent(
+        eventsData.filter(
+          (e) =>
+            e.event === BlockEventName[ContractName.SoulboundNft].ProfileMinted,
+        ) as any,
+        toBlock,
+      );
+
+      await this.handleActiveNftChangedEvent(
+        eventsData.filter(
+          (e) =>
+            e.event ===
+            BlockEventName[ContractName.SoulboundNft].ActiveNftChanged,
+        ) as any,
+        toBlock,
+      );
+    } catch (error) {
+      console.log(`❌ Error fetching past events for ${eventName}:`, error);
+    }
+  }
+
+  async handleLikeEvent(
+    data: { liker: string; target: string }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    await this.prisma.likes.createMany({
+      data: data.map((like) => ({
+        likerAddress: like.liker.toLowerCase(),
+        targetAddress: like.target.toLowerCase(),
+        status: true,
+      })),
+    });
+
+    await this.updateBlockTracker(
+      ContractName.MatchMaking,
+      BlockEventName[ContractName.MatchMaking].Like,
+      toBlock,
+    );
+  }
+
+  async handleUnLikeEvent(
+    data: { liker: string; target: string }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    const existingLikes = await this.prisma.likes.findMany({
+      where: {
+        OR: data.map((l) => ({
+          AND: [
+            { likerAddress: { contains: l.liker, mode: 'insensitive' } },
+            { targetAddress: { contains: l.target, mode: 'insensitive' } },
+          ],
+        })),
+        status: true,
+      },
+    });
+    if (existingLikes.length) {
+      await this.prisma.likes.updateMany({
+        where: { id: { in: existingLikes.map((like) => like.id) } },
+        data: {
+          status: false,
+        },
+      });
+    }
+    await this.updateBlockTracker(
+      ContractName.MatchMaking,
+      BlockEventName[ContractName.MatchMaking].UnLike,
+      toBlock,
+    );
+  }
+
+  async handleMatchEvent(
+    data: { userA: string; userB: string }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    await this.prisma.matches.createMany({
+      data: data.map((user) => ({
+        addressA: user.userA.toLowerCase(),
+        addressB: user.userB.toLowerCase(),
+        status: true,
+      })),
+    });
+
+    await this.updateBlockTracker(
+      ContractName.MatchMaking,
+      BlockEventName[ContractName.MatchMaking].Match,
+      toBlock,
+    );
+  }
+
+  async handleMultiSigWalletEvent(
+    data: { walletAddress: string; userA: string; userB: string }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    await this.prisma.multiSigWallet.createMany({
+      data: data.map((d) => ({
+        addressA: d.userA?.toLowerCase(),
+        addressB: d.userB?.toLowerCase(),
+        walletAddress: d.walletAddress?.toLowerCase(),
+      })),
+      skipDuplicates: true,
+    });
+
+    await this.updateBlockTracker(
+      ContractName.MatchMaking,
+      BlockEventName[ContractName.MatchMaking].MultiSigCreated,
+      toBlock,
+    );
+
+    const users = await this.prisma.multiSigWallet.findMany({
+      where: {
+        OR: data.map((d) => ({
+          AND: [
+            { addressA: { contains: d.userA, mode: 'insensitive' } },
+            { addressB: { contains: d.userB, mode: 'insensitive' } },
+          ],
+        })),
+      },
+      select: {
+        userA: {
+          select: {
+            id: true,
+          },
+        },
+        userB: {
+          select: {
+            id: true,
+          },
+        },
+      },
+    });
+
+    const chatRooms = users.map((user) => ({
+      userAId: user.userA.id,
+      userBId: user.userB.id,
+    }));
+
+    const chatRoomsExists = await this.prisma.chatRoom.findMany({
+      where: {
+        OR: chatRooms.map((c) => ({
+          OR: [
+            {
+              AND: [{ userAId: c.userAId }, { userBId: c.userBId }],
+            },
+            {
+              AND: [{ userAId: c.userBId }, { userBId: c.userAId }],
+            },
+          ],
+        })),
+      },
+    });
+
+    const notExistingChat = chatRooms.filter(
+      (c) =>
+        !chatRoomsExists.some(
+          (e) =>
+            (e.userAId === c.userAId && e.userBId === c.userBId) ||
+            (e.userBId === c.userAId && e.userAId === c.userBId),
+        ),
+    );
+
+    if (notExistingChat.length) {
+      await this.prisma.chatRoom.createMany({
+        data: notExistingChat.map((d) => ({
+          userAId: d.userAId,
+          userBId: d.userBId,
+        })),
+        skipDuplicates: true,
+      });
+    }
+  }
+
+  async handleProfileMintedEvent(
+    data: { user: string; tokenId: string; tokenUri: string }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    const existingNfts = await this.prisma.nfts.findMany({
+      where: {
+        walletAddress: {
+          in: data.map((d) => d.user.toLowerCase()),
+          mode: 'insensitive',
+        },
+        active: true,
+      },
+    });
+    if (existingNfts.length) {
+      await this.prisma.nfts.updateMany({
+        where: { id: { in: existingNfts.map((el) => el.id) } },
+        data: { active: false },
+      });
+    }
+    await this.prisma.nfts.createMany({
+      data: data.map((d, idx) => ({
+        walletAddress: d.user?.toLowerCase(),
+        tokenId: Number(d.tokenId),
+        tokenUri: d.tokenUri,
+        active: idx === data.length - 1 ? true : false,
+      })),
+    });
+
+    await this.updateBlockTracker(
+      ContractName.SoulboundNft,
+      BlockEventName[ContractName.SoulboundNft].ProfileMinted,
+      toBlock,
+    );
+  }
+
+  async handleActiveNftChangedEvent(
+    data: { user: string; tokenId: string; blockNumber: number }[],
+    toBlock: number,
+  ) {
+    if (!data.length) {
+      return;
+    }
+
+    const latestBlockNum = Math.max(...data.map((d) => d.blockNumber));
+
+    const latestBlockData = data.find(
+      (el) => el.blockNumber === latestBlockNum,
+    );
+
+    if (latestBlockData) {
+      await this.prisma.nfts.update({
+        where: {
+          walletAddress: { equals: latestBlockData.user, mode: 'insensitive' },
+          tokenId: Number(latestBlockData.tokenId),
+        },
+        data: { active: true },
+      });
+    }
+
+    await this.updateBlockTracker(
+      ContractName.SoulboundNft,
+      BlockEventName[ContractName.SoulboundNft].ActiveNftChanged,
+      toBlock,
+    );
+  }
+
+  async updateBlockTracker(
+    contractName: ContractName,
+    eventName: string,
+    blockNumber: number,
+  ) {
+    await this.prisma.blockTracker.upsert({
+      where: {
+        contractName_eventName: {
+          contractName: contractName,
+          eventName: eventName,
+        },
+      },
+      create: {
+        contractName: contractName,
+        eventName: eventName,
+        lastBlockNumber: blockNumber,
+      },
+      update: {
+        lastBlockNumber: blockNumber,
+      },
+    });
   }
 }

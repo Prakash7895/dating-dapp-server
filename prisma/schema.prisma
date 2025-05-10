@@ -208,3 +208,15 @@ model Notification {
   @@index([userId])
   @@map("notifications")
 }
+
+model BlockTracker {
+  id              String   @id @default(uuid())
+  eventName       String
+  contractName    String
+  lastBlockNumber Float
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([contractName, eventName])
+  @@map("block_tracker")
+}

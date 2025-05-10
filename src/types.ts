@@ -38,3 +38,21 @@ export enum FILE_ACCESS {
   PRIVATE = 'PRIVATE',
   PUBLIC = 'PUBLIC',
 }
+
+export enum ContractName {
+  MatchMaking = 'MatchMaking',
+  SoulboundNft = 'SoulboundNft',
+}
+
+export const BlockEventName = {
+  [ContractName.MatchMaking]: {
+    Like: 'Like',
+    UnLike: 'UnLike',
+    Match: 'Match',
+    MultiSigCreated: 'MultiSigCreated',
+  },
+  [ContractName.SoulboundNft]: {
+    ProfileMinted: 'ProfileMinted',
+    ActiveNftChanged: 'ActiveNftChanged',
+  },
+};
