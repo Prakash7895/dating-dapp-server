@@ -8,6 +8,12 @@ async function bootstrap() {
   const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000'];
 
   console.log('Allowed Origins:', allowedOrigins);
+  app.use((req, res, next) => {
+    console.log(
+      `[${new Date().toISOString()}] ${req.method} ${req.url} - Origin: ${req.headers.origin}`,
+    );
+    next();
+  });
   app.enableCors({
     origin: (origin, callback) => {
       console.log('Origin:', origin);
