@@ -15,6 +15,7 @@ import { WebSocketModule } from './web-socket/web-socket.module';
 import { ChatModule } from './chat/chat.module';
 import { NotificationModule } from './notification/notification.module';
 import { HealthModule } from './health/health.module';
+import { EmailService } from './email/email.service';
 
 @Module({
   imports: [
@@ -31,6 +32,6 @@ import { HealthModule } from './health/health.module';
     HealthModule,
   ],
   controllers: [AppController],
-  providers: [AppService, PrismaService, HelperService, UploadService],
+  providers: [AppService, PrismaService, HelperService, UploadService, EmailService],
 })
 export class AppModule {}

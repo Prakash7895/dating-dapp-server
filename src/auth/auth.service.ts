@@ -6,10 +6,16 @@ import {
 import { PrismaService } from 'src/prisma.service';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { AuthDto, SessionResponse, WalletAuthDto } from './dto/auth.dto';
+import {
+  AuthDto,
+  ResetPasswordDto,
+  SessionResponse,
+  WalletAuthDto,
+} from './dto/auth.dto';
 import { JwtPayload } from 'src/types';
 import { ethers } from 'ethers';
 import { HelperService } from 'src/helper/helper.service';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -17,6 +23,7 @@ export class AuthService {
     private prisma: PrismaService,
     private jwtService: JwtService,
     private helperService: HelperService,
+    private emailService: EmailService,
   ) {}
 
   async validateUser(email: string, password: string) {
@@ -329,6 +336,48 @@ export class AuthService {
       throw new BadRequestException({
         message: 'Invalid credentials',
         error: error.message,
+        status: 'error',
+      });
+    }
+  }
+
+  async resetPassword(dto: ResetPasswordDto) {
+    try {
+      const { email } = dto;
+
+      const userToReset = await this.prisma.user.findUnique({
+        where: { email },
+        include: { profile: true },
+      });
+
+      if (!userToReset) {
+        throw new BadRequestException(
+          'No user found with this email. Please sign up.',
+        );
+      }
+      const payload: JwtPayload = {
+        email: userToReset.email,
+        userId: userToReset.id,
+        walletAddress: userToReset.walletAddress,
+        firstName: userToReset.profile?.firstName ?? null,
+        lastName: userToReset.profile?.lastName ?? null,
+      };
+
+      const resetToken = this.jwtService.sign(payload, {
+        secret: process.env.JWT_RESET_SECRET,
+        expiresIn: '10m', // Token expires in 10 minutes
+      });
+
+      await this.emailService.sendResetPasswordEmail(email, resetToken);
+
+      return {
+        status: 'success',
+        message: 'Password reset link sent to your email',
+      };
+    } catch (error) {
+      throw new BadRequestException({
+        error: 'Error resetting password',
+        message: error.message,
         status: 'error',
       });
     }

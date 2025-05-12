@@ -25,3 +25,9 @@ export class WalletAuthDto {
   @IsNotEmpty()
   signedMessage: string;
 }
+
+export class ResetPasswordDto {
+  @IsString()
+  @IsNotEmpty()
+  email: string;
+}
