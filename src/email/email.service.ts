@@ -62,7 +62,7 @@ export class EmailService {
             Click the button below to log in and get started:
           </p>
           <p style="text-align: center; margin: 20px 0;">
-            <a href="${process.env.FRONTEND_URL}/auth/login" style="
+            <a href="${process.env.FRONTEND_URL}/auth/signin" style="
               display: inline-block;
               padding: 10px 20px;
               font-size: 16px;
