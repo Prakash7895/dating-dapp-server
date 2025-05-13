@@ -254,6 +254,9 @@ export class WebSocketGateway
     @MessageBody() payload: { roomId: string; content: string },
     @WsUser() user: JwtPayload,
   ) {
+    console.log('');
+    console.log('[SEND_MESSAGE] Received message:', payload);
+    console.log('');
     const message = await this.prisma.chatMessage.create({
       data: {
         content: payload.content,
