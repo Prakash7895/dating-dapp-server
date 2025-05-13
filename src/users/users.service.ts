@@ -12,6 +12,7 @@ import { UploadService } from 'src/upload/upload.service';
 import { isAddress } from 'ethers';
 import { NotificationType } from 'src/notification/dto/nudge.dto';
 import { Prisma } from '@prisma/client';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class UsersService {
@@ -19,6 +20,7 @@ export class UsersService {
     private prisma: PrismaService,
     private helperService: HelperService,
     private uploadService: UploadService,
+    private emailService: EmailService,
   ) {}
 
   async create(createUserDto: CreateUserDto) {
@@ -109,6 +111,13 @@ export class UsersService {
           },
         },
       });
+
+      if (user.email) {
+        await this.emailService.sendSignUpEmail(
+          user.email,
+          `${userData?.firstName} ${userData?.lastName}`,
+        );
+      }
 
       return {
         status: 'success',

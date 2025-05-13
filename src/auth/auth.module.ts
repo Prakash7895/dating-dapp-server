@@ -6,11 +6,12 @@ import { JwtModule } from '@nestjs/jwt';
 import { JwtStrategy } from './jwt.strategy';
 import { PrismaService } from 'src/prisma.service';
 import { HelperService } from 'src/helper/helper.service';
-import { EmailService } from 'src/email/email.service';
+import { EmailModule } from 'src/email/email.module';
 
 @Module({
   imports: [
     PassportModule,
+    EmailModule,
     JwtModule.register({
       global: true,
       secret: process.env.JWT_SECRET,
@@ -18,13 +19,7 @@ import { EmailService } from 'src/email/email.service';
     }),
   ],
   controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    PrismaService,
-    HelperService,
-    EmailService,
-  ],
+  providers: [AuthService, JwtStrategy, PrismaService, HelperService],
   exports: [AuthService],
 })
 export class AuthModule {}

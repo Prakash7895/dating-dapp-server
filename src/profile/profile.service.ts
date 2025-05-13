@@ -15,6 +15,7 @@ import { UploadService } from 'src/upload/upload.service';
 import { isAddress } from 'ethers';
 import { PaginationDto } from 'src/common.dto';
 import { JwtService } from '@nestjs/jwt';
+import { EmailService } from 'src/email/email.service';
 
 @Injectable()
 export class ProfileService {
@@ -23,6 +24,7 @@ export class ProfileService {
     private helperService: HelperService,
     private uploadService: UploadService,
     private jwtService: JwtService,
+    private emailService: EmailService,
   ) {}
 
   async getCurrUser(user: JwtPayload) {
@@ -274,6 +276,11 @@ export class ProfileService {
           password: hashedPassword,
         },
       });
+
+      await this.emailService.sendSignUpEmail(
+        data.email,
+        `${savedUser.profile?.firstName} ${savedUser.profile?.lastName}`,
+      );
 
       return {
         status: 'success',

@@ -15,6 +15,7 @@ export class EmailService {
         pass: process.env.APP_EMAIL_PASSWORD,
       },
     });
+    console.log('Email transporter initialized');
   }
 
   async sendEmail(to: string, subject: string, html: string) {
