@@ -14,6 +14,7 @@ import { HelperService } from 'src/helper/helper.service';
 import { UploadService } from 'src/upload/upload.service';
 import { isAddress } from 'ethers';
 import { PaginationDto } from 'src/common.dto';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class ProfileService {
@@ -21,6 +22,7 @@ export class ProfileService {
     private prisma: PrismaService,
     private helperService: HelperService,
     private uploadService: UploadService,
+    private jwtService: JwtService,
   ) {}
 
   async getCurrUser(user: JwtPayload) {
@@ -128,7 +130,11 @@ export class ProfileService {
     }
   }
 
-  async updateCurrUserPassword(data: UpdatePasswordDto, user: JwtPayload) {
+  async updateCurrUserPassword(
+    data: UpdatePasswordDto,
+    user: JwtPayload,
+    isReset = false,
+  ) {
     try {
       const savedUser = await this.prisma.user.findUnique({
         where: { id: user.userId },
@@ -136,6 +142,23 @@ export class ProfileService {
 
       if (!savedUser) {
         throw new BadRequestException('User not found');
+      }
+
+      if (isReset) {
+        const token = data.token;
+        const payload = this.jwtService.verify(token!, {
+          secret: process.env.JWT_RESET_SECRET,
+        });
+
+        // Check if the token is already invalidated
+        if (
+          savedUser.updatedAt &&
+          payload.iat * 1000 < new Date(savedUser.updatedAt).getTime()
+        ) {
+          throw new BadRequestException(
+            'This reset token has already been used.',
+          );
+        }
       }
 
       const hashedPassword = await this.helperService.hashPassword(
@@ -146,6 +169,7 @@ export class ProfileService {
         where: { id: user.userId },
         data: {
           password: hashedPassword,
+          updatedAt: new Date(),
         },
       });
 
@@ -155,8 +179,8 @@ export class ProfileService {
       };
     } catch (error) {
       throw new BadRequestException({
-        message: 'Failed to get current user',
-        error: error.message,
+        error: 'Failed to get current user',
+        message: error.message,
         status: 'error',
       });
     }

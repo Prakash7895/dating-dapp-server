@@ -8,6 +8,7 @@ import {
   IsEnum,
   IsNotEmpty,
   IsNumber,
+  IsOptional,
   IsString,
   Matches,
   Max,
@@ -42,6 +43,10 @@ export class UpdatePasswordDto {
     message: 'Password and confirm password should be same.',
   })
   confirmPassword: string;
+
+  @IsString()
+  @IsOptional()
+  token?: string;
 }
 
 export class UpdateUserDto {

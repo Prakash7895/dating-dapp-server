@@ -45,61 +45,71 @@ export class EmailService {
   }
 
   async sendSignUpEmail(to: string, userName: string) {
-    const subject = 'Welcome to Chain Match!';
-    const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <p>Hi ${userName},</p>
-      <p>Welcome to <strong>Chain Match</strong>! We're thrilled to have you join our community.</p>
-      <p>Here's what you can do next:</p>
-      <ul style="padding-left: 20px;">
-        <li>Log in to your account and complete your profile.</li>
-        <li>Start exploring and connecting with like-minded individuals.</li>
-        <li>Enjoy a seamless and secure dating experience.</li>
-      </ul>
-      <p>
-        Click the button below to log in and get started:
-      </p>
-      <p style="text-align: center; margin: 20px 0;">
-        <a href="${process.env.FRONTEND_URL}/auth/login" style="
-          display: inline-block;
-          padding: 10px 20px;
-          font-size: 16px;
-          color: #fff;
-          background-color: #CF29DE;
-          text-decoration: none;
-          border-radius: 5px;
-        ">Log In to Chain Match</a>
-      </p>
-      ${this.getEmailFooter()}
-    </div>
-  `;
-    await this.sendEmail(to, subject, html);
+    try {
+      const subject = 'Welcome to Chain Match!';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <p>Hi ${userName},</p>
+          <p>Welcome to <strong>Chain Match</strong>! We're thrilled to have you join our community.</p>
+          <p>Here's what you can do next:</p>
+          <ul style="padding-left: 20px;">
+            <li>Log in to your account and complete your profile.</li>
+            <li>Start exploring and connecting with like-minded individuals.</li>
+            <li>Enjoy a seamless and secure dating experience.</li>
+          </ul>
+          <p>
+            Click the button below to log in and get started:
+          </p>
+          <p style="text-align: center; margin: 20px 0;">
+            <a href="${process.env.FRONTEND_URL}/auth/login" style="
+              display: inline-block;
+              padding: 10px 20px;
+              font-size: 16px;
+              color: #fff;
+              background-color: #CF29DE;
+              text-decoration: none;
+              border-radius: 5px;
+            ">Log In to Chain Match</a>
+          </p>
+          ${this.getEmailFooter()}
+        </div>
+      `;
+      await this.sendEmail(to, subject, html);
+    } catch (error) {
+      console.log('Error sending sign up email:', error);
+      throw new Error('Failed to send sign up email');
+    }
   }
 
   async sendResetPasswordEmail(to: string, token: string) {
-    const resetLink = `${process.env.FRONTEND_URL}/reset-password?token=${token}`;
-    const subject = 'Password Reset Request';
-    const html = `
-    <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-      <p>Hi,</p>
-      <p>We received a request to reset your password for your <strong>Chain Match</strong> account.</p>
-      <p>Click the link below to reset your password:</p>
-      <p style="text-align: center; margin: 20px 0;">
-        <a href="${resetLink}" style="
-          display: inline-block;
-          padding: 10px 20px;
-          font-size: 16px;
-          color: #fff;
-          background-color: #CF29DE;
-          text-decoration: none;
-          border-radius: 5px;
-        ">Reset Your Password</a>
-      </p>
-      <p><strong>Note:</strong> This link will expire in 10 minutes for security reasons. If you do not reset your password within this time, you will need to request a new link.</p>
-      <p>If you did not request this password reset, please ignore this email. Your account will remain secure, and no changes will be made.</p>
-      ${this.getEmailFooter()}
-    </div>
-  `;
-    await this.sendEmail(to, subject, html);
+    try {
+      const resetLink = `${process.env.FRONTEND_URL}/auth/reset-password?token=${token}`;
+      const subject = 'Password Reset Request';
+      const html = `
+        <div style="font-family: Arial, sans-serif; line-height: 1.6;">
+          <p>Hi,</p>
+          <p>We received a request to reset your password for your <strong>Chain Match</strong> account.</p>
+          <p>Click the link below to reset your password:</p>
+          <p style="text-align: center; margin: 20px 0;">
+            <a href="${resetLink}" style="
+              display: inline-block;
+              padding: 10px 20px;
+              font-size: 16px;
+              color: #fff;
+              background-color: #CF29DE;
+              text-decoration: none;
+              border-radius: 5px;
+            ">Reset Your Password</a>
+          </p>
+          <p><strong>Note:</strong> This link will expire in 10 minutes for security reasons. If you do not reset your password within this time, you will need to request a new link.</p>
+          <p>If you did not request this password reset, please ignore this email. Your account will remain secure, and no changes will be made.</p>
+          ${this.getEmailFooter()}
+        </div>
+      `;
+      await this.sendEmail(to, subject, html);
+    } catch (error) {
+      console.log('Error sending reset password email:', error);
+      throw new Error('Failed to send reset password email');
+    }
   }
 }

@@ -43,6 +43,15 @@ export class ProfileController {
     return this.profileService.updateCurrUser(body, req.user);
   }
 
+  @Put('/reset-password')
+  @UseGuards(JwtAuthGuard)
+  resetCurrUserPassword(
+    @Req() req: RequestWithUser,
+    @Body() body: UpdatePasswordDto,
+  ) {
+    return this.profileService.updateCurrUserPassword(body, req.user, true);
+  }
+
   @Put('/password')
   @UseGuards(JwtAuthGuard)
   updateCurrUserPassword(
