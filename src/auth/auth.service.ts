@@ -79,7 +79,7 @@ export class AuthService {
       }
 
       // Verify signature
-      const message = `${process.env.WALLET_MESSAGE_TO_VERIFY}${walletAddress}`;
+      const message = `${process.env.WALLET_MESSAGE_TO_VERIFY}${walletAddress.toLowerCase()}`;
       const isValid = await this.helperService.verifyWalletSignature(
         walletAddress,
         signedMessage,
