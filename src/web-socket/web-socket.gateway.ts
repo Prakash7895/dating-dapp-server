@@ -46,10 +46,13 @@ enum EMIT_EVENTS {
   NEW_MATCH_EVENT = 'newMatchEvent',
 }
 
-const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000'];
 @WebSocketGatewayDecorator({
   cors: {
     origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        'http://localhost:3000',
+      ];
       console.log('[WS] Origin:', origin);
       console.log('[WS] FRONTEND_URL:', process.env.FRONTEND_URL);
       console.log('[WS] Allowed Origins:', allowedOrigins);
