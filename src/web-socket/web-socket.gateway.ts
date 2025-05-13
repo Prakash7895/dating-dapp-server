@@ -51,6 +51,8 @@ const allowedOrigins = [process.env.FRONTEND_URL, 'http://localhost:3000'];
   cors: {
     origin: (origin, callback) => {
       console.log('[WS] Origin:', origin);
+      console.log('[WS] FRONTEND_URL:', process.env.FRONTEND_URL);
+      console.log('[WS] Allowed Origins:', allowedOrigins);
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true); // Allow the request
       } else {
