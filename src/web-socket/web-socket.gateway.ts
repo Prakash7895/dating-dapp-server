@@ -187,6 +187,7 @@ export class WebSocketGateway
     );
   }
 
+  @UseGuards(WsJwtGuard)
   @SubscribeMessage(CHAT_EVENTS.HEART_BEAT)
   async handleHeartbeat(@ConnectedSocket() client: UserSocket) {
     console.log(`Heartbeat received from client: ${client.user?.userId}`);
