@@ -12,11 +12,15 @@ export class WsJwtGuard implements CanActivate {
       const client = context.switchToWs().getClient();
       const token = client.handshake.auth.token;
 
+      console.log('[WsJwtGuard] Client:', client);
+      console.log('[WsJwtGuard] Token received:', token);
+
       if (!token) {
         throw new WsException('Missing token');
       }
-
+      console.log('[WsJwtGuard] Client.user', client.user);
       const payload = await this.jwtService.verifyAsync(token);
+      console.log('[WsJwtGuard] payload:', payload);
       client.user = payload;
       return true;
     } catch (err) {
