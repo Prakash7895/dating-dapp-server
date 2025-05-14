@@ -24,7 +24,7 @@ export class WsJwtGuard implements CanActivate {
       client.user = payload;
       return true;
     } catch (err) {
-      throw new WsException('Invalid token');
+      throw new WsException('Invalid token!!!!');
     }
   }
 }
