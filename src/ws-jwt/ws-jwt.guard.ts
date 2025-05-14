@@ -1,7 +1,6 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { WsException } from '@nestjs/websockets';
-import { Observable } from 'rxjs';
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
@@ -19,7 +18,9 @@ export class WsJwtGuard implements CanActivate {
         throw new WsException('Missing token');
       }
       console.log('[WsJwtGuard] Client.user', client.user);
-      const payload = await this.jwtService.verifyAsync(token);
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_SECRET,
+      });
       console.log('[WsJwtGuard] payload:', payload);
       client.user = payload;
       return true;
