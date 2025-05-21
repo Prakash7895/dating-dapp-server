@@ -479,6 +479,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
             eventName,
             fromBlock,
             latestBlock,
+            contractName as ContractName,
           );
         }
       }
@@ -492,6 +493,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
     eventName: string,
     fromBlock: number,
     toBlock: number,
+    contractName: ContractName,
   ) {
     try {
       const BATCH_SIZE = 500;
@@ -574,21 +576,21 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
           eventsData.filter(
             (e) => e.event === BlockEventName[ContractName.MatchMaking].Like,
           ) as any,
-          toBlock,
+          end,
         );
 
         await this.handleUnLikeEvent(
           eventsData.filter(
             (e) => e.event === BlockEventName[ContractName.MatchMaking].UnLike,
           ) as any,
-          toBlock,
+          end,
         );
 
         await this.handleMatchEvent(
           eventsData.filter(
             (e) => e.event === BlockEventName[ContractName.MatchMaking].Match,
           ) as any,
-          toBlock,
+          end,
         );
 
         await this.handleMultiSigWalletEvent(
@@ -597,7 +599,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
               e.event ===
               BlockEventName[ContractName.MatchMaking].MultiSigCreated,
           ) as any,
-          toBlock,
+          end,
         );
 
         await this.handleProfileMintedEvent(
@@ -606,7 +608,7 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
               e.event ===
               BlockEventName[ContractName.SoulboundNft].ProfileMinted,
           ) as any,
-          toBlock,
+          end,
         );
 
         await this.handleActiveNftChangedEvent(
@@ -615,8 +617,12 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
               e.event ===
               BlockEventName[ContractName.SoulboundNft].ActiveNftChanged,
           ) as any,
-          toBlock,
+          end,
         );
+
+        if (!eventsData.length) {
+          await this.updateBlockTracker(contractName, eventName, end);
+        }
       }
     } catch (error) {
       console.log(`❌ Error fetching past events for ${eventName}:`, error);
