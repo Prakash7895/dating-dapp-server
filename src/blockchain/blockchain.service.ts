@@ -494,124 +494,130 @@ export class BlockchainService implements OnModuleInit, OnModuleDestroy {
     toBlock: number,
   ) {
     try {
-      console.log(
-        `Fetching past events for ${eventName} from block ${fromBlock} to ${toBlock}...`,
-      );
+      const BATCH_SIZE = 500;
+      for (let start = fromBlock; start <= toBlock; start += BATCH_SIZE) {
+        const end = Math.min(start + BATCH_SIZE - 1, toBlock);
 
-      const events = await contract?.queryFilter(
-        contract.filters[eventName](),
-        fromBlock,
-        toBlock,
-      );
+        console.log(
+          `Fetching past events for ${eventName} from block ${start} to ${end}...`,
+        );
 
-      const eventsData = events
-        .map((ev) => {
-          const event = ev as ethers.EventLog;
-          const blockNumber = event.blockNumber;
-          console.log(`Processing past event: ${eventName}`, event.args);
-          if (eventName === BlockEventName[ContractName.MatchMaking].Like) {
-            return {
-              event: eventName,
-              liker: event.args.liker,
-              target: event.args.target,
-            };
-          } else if (
-            eventName === BlockEventName[ContractName.MatchMaking].UnLike
-          ) {
-            return {
-              event: eventName,
-              liker: event.args.liker,
-              target: event.args.target,
-            };
-          } else if (
-            eventName === BlockEventName[ContractName.MatchMaking].Match
-          ) {
-            return {
-              event: eventName,
-              userA: event.args.userA,
-              userB: event.args.userB,
-            };
-          } else if (
-            eventName ===
-            BlockEventName[ContractName.MatchMaking].MultiSigCreated
-          ) {
-            return {
-              event: eventName,
-              walletAddress: event.args.walletAddress,
-              userA: event.args.userA,
-              userB: event.args.userB,
-            };
-          } else if (
-            eventName ===
-            BlockEventName[ContractName.SoulboundNft].ProfileMinted
-          ) {
-            return {
-              event: eventName,
-              user: event.args.user,
-              tokenId: event.args.tokenId,
-              tokenUri: event.args.tokenUri,
-            };
-          } else if (
-            eventName ===
-            BlockEventName[ContractName.SoulboundNft].ActiveNftChanged
-          ) {
-            return {
-              event: eventName,
-              user: event.args.user,
-              tokenId: event.args.tokenId,
-              blockNumber: blockNumber,
-            };
-          }
-          return null;
-        })
-        .filter((e) => e !== null);
+        const events = await contract?.queryFilter(
+          contract.filters[eventName](),
+          start,
+          end,
+        );
 
-      await this.handleLikeEvent(
-        eventsData.filter(
-          (e) => e.event === BlockEventName[ContractName.MatchMaking].Like,
-        ) as any,
-        toBlock,
-      );
+        const eventsData = events
+          .map((ev) => {
+            const event = ev as ethers.EventLog;
+            const blockNumber = event.blockNumber;
+            console.log(`Processing past event: ${eventName}`, event.args);
+            if (eventName === BlockEventName[ContractName.MatchMaking].Like) {
+              return {
+                event: eventName,
+                liker: event.args.liker,
+                target: event.args.target,
+              };
+            } else if (
+              eventName === BlockEventName[ContractName.MatchMaking].UnLike
+            ) {
+              return {
+                event: eventName,
+                liker: event.args.liker,
+                target: event.args.target,
+              };
+            } else if (
+              eventName === BlockEventName[ContractName.MatchMaking].Match
+            ) {
+              return {
+                event: eventName,
+                userA: event.args.userA,
+                userB: event.args.userB,
+              };
+            } else if (
+              eventName ===
+              BlockEventName[ContractName.MatchMaking].MultiSigCreated
+            ) {
+              return {
+                event: eventName,
+                walletAddress: event.args.walletAddress,
+                userA: event.args.userA,
+                userB: event.args.userB,
+              };
+            } else if (
+              eventName ===
+              BlockEventName[ContractName.SoulboundNft].ProfileMinted
+            ) {
+              return {
+                event: eventName,
+                user: event.args.user,
+                tokenId: event.args.tokenId,
+                tokenUri: event.args.tokenUri,
+              };
+            } else if (
+              eventName ===
+              BlockEventName[ContractName.SoulboundNft].ActiveNftChanged
+            ) {
+              return {
+                event: eventName,
+                user: event.args.user,
+                tokenId: event.args.tokenId,
+                blockNumber: blockNumber,
+              };
+            }
+            return null;
+          })
+          .filter((e) => e !== null);
 
-      await this.handleUnLikeEvent(
-        eventsData.filter(
-          (e) => e.event === BlockEventName[ContractName.MatchMaking].UnLike,
-        ) as any,
-        toBlock,
-      );
+        await this.handleLikeEvent(
+          eventsData.filter(
+            (e) => e.event === BlockEventName[ContractName.MatchMaking].Like,
+          ) as any,
+          toBlock,
+        );
 
-      await this.handleMatchEvent(
-        eventsData.filter(
-          (e) => e.event === BlockEventName[ContractName.MatchMaking].Match,
-        ) as any,
-        toBlock,
-      );
+        await this.handleUnLikeEvent(
+          eventsData.filter(
+            (e) => e.event === BlockEventName[ContractName.MatchMaking].UnLike,
+          ) as any,
+          toBlock,
+        );
 
-      await this.handleMultiSigWalletEvent(
-        eventsData.filter(
-          (e) =>
-            e.event ===
-            BlockEventName[ContractName.MatchMaking].MultiSigCreated,
-        ) as any,
-        toBlock,
-      );
+        await this.handleMatchEvent(
+          eventsData.filter(
+            (e) => e.event === BlockEventName[ContractName.MatchMaking].Match,
+          ) as any,
+          toBlock,
+        );
 
-      await this.handleProfileMintedEvent(
-        eventsData.filter(
-          (e) =>
-            e.event === BlockEventName[ContractName.SoulboundNft].ProfileMinted,
-        ) as any,
-        toBlock,
-      );
+        await this.handleMultiSigWalletEvent(
+          eventsData.filter(
+            (e) =>
+              e.event ===
+              BlockEventName[ContractName.MatchMaking].MultiSigCreated,
+          ) as any,
+          toBlock,
+        );
 
-      await this.handleActiveNftChangedEvent(
-        eventsData.filter(
-          (e) =>
-            e.event ===
-            BlockEventName[ContractName.SoulboundNft].ActiveNftChanged,
-        ) as any,
-        toBlock,
-      );
+        await this.handleProfileMintedEvent(
+          eventsData.filter(
+            (e) =>
+              e.event ===
+              BlockEventName[ContractName.SoulboundNft].ProfileMinted,
+          ) as any,
+          toBlock,
+        );
+
+        await this.handleActiveNftChangedEvent(
+          eventsData.filter(
+            (e) =>
+              e.event ===
+              BlockEventName[ContractName.SoulboundNft].ActiveNftChanged,
+          ) as any,
+          toBlock,
+        );
+      }
     } catch (error) {
       console.log(`❌ Error fetching past events for ${eventName}:`, error);
     }
